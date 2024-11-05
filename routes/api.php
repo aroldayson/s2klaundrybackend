@@ -12,15 +12,15 @@ Route::get('/', function () {
     return "API";
 });
 
-// Route::middleware(['auth'])->group(function () {
-//     Route::get('/displaystaff', [AdminController::class, 'displaystaff']);
-//     Route::get('/findstaff/{id}', [AdminController::class, 'findstaff']);
-//     Route::post('/addstaff', [AdminController::class, 'addstaff']);
-//     Route::put('/updatestaff/{id}', [AdminController::class, 'updatestaff']);
-//     Route::delete('/deletestaff/{id}', [AdminController::class, 'deletestaff']);
-//     Route::post('/update-profile-image/{id}', [AdminController::class, 'updateProfileImage']);
-//     // Add other admin routes here
-// });
+Route::middleware(['admin'])->group(function () {
+    Route::get('/displaystaff', [AdminController::class, 'displaystaff']);
+    Route::get('/findstaff/{id}', [AdminController::class, 'findstaff']);
+    Route::post('/addstaff', [AdminController::class, 'addstaff']);
+    Route::put('/updatestaff/{id}', [AdminController::class, 'updatestaff']);
+    Route::delete('/deletestaff/{id}', [AdminController::class, 'deletestaff']);
+    Route::post('/update-profile-image/{id}', [AdminController::class, 'updateProfileImage']);
+    // Add other admin routes here
+});
 
 //admin - loginadmin
 Route::post('/login',[AdminController::class, 'login']);
@@ -45,6 +45,7 @@ Route::put('/updateprice/{id}',[AdminController::class, 'updateprice']);
 
 // admin - dashboard
 Route::get('/dashdisplays',[AdminController::class, 'dashdisplays']);
+Route::get('/dashdisplaysgraph',[AdminController::class, 'dashdisplaysgraph']);
 Route::get('/expensendisplays',[AdminController::class, 'expensendisplays']);
 Route::get('/displaystaffs',[AdminController::class, 'displaystaffs']);
 Route::post('/cashinitial',[AdminController::class, 'cashinitial']);
@@ -62,6 +63,7 @@ Route::post('/updateprofile/{id}', [AdminController::class, 'updateprofile']);
 
 // admin - transactions
 Route::get('/Transadisplay',[AdminController::class, 'Transadisplay']);
+// Route::get('/printTransac',[AdminController::class, 'printTransac']);
 Route::get('/printTransac/{id}',[AdminController::class, 'printTransac']);
 Route::get('/approveremit/{id}',[AdminController::class, 'approveremit']);
 

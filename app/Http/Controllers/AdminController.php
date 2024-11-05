@@ -23,7 +23,7 @@ use App\Models\Cashdetails;
 class AdminController extends Controller
 {
 
-    //adminlogin
+    // ADMIN LOGIN
     public function login(Request $request)
     {
         // Validate the incoming request
@@ -298,6 +298,55 @@ class AdminController extends Controller
              'total_amount' => $totalAmount
          ], 200);
      }
+     public function dashdisplaysgraph(Request $request)
+    {
+        // Retrieve year and month from the request
+        $year = $request->input('year');
+        $month = $request->input('month');
+
+        // Initialize the query
+        $query = Payments::selectRaw('
+                YEAR(Datetime_of_Payment) as year,
+                MONTH(Datetime_of_Payment) as month,
+                Mode_of_Payment,
+                SUM(Amount) as total_amount
+            ');
+
+        // Apply filters for year and month if provided
+        if ($year) {
+            $query->whereYear('Datetime_of_Payment', $year);
+        }
+        if ($month) {
+            $query->whereMonth('Datetime_of_Payment', $month);
+        }
+
+        // Group and order the results
+        $payments = $query->groupBy('year', 'month', 'Mode_of_Payment')
+            ->orderBy('year', 'desc')
+            ->orderBy('month', 'desc')
+            ->get();
+
+        $monthlyTotals = [];
+
+        foreach ($payments as $payment) {
+            $monthYearKey = $payment->year . '-' . str_pad($payment->month, 2, '0', STR_PAD_LEFT); 
+            if (!isset($monthlyTotals[$monthYearKey])) {
+                $monthlyTotals[$monthYearKey] = [
+                    'gcash' => 0,
+                    'cash' => 0,
+                    'bpi' => 0,
+                    'total_amount' => 0,
+                ];
+            }
+            
+            $monthlyTotals[$monthYearKey][$payment->Mode_of_Payment] += $payment->total_amount;
+            $monthlyTotals[$monthYearKey]['total_amount'] += $payment->total_amount; 
+        }
+
+        return response()->json([
+            'totals' => $monthlyTotals, // Grouped totals by month
+        ], 200);
+    }
      public function expensendisplays(){
          $date = now()->toDateString();  
  
@@ -483,7 +532,7 @@ class AdminController extends Controller
                 DB::raw('SUM(transaction_details.Price) as totalPrice'),
                 DB::raw('GROUP_CONCAT(laundry_categories.Category SEPARATOR ", ") as Categories'),
                 DB::raw('COUNT(DISTINCT transactions.Transac_ID) as total_count'),
-                DB::raw('SUM(payments.Amount) as totalPaymentAmount'), // This aggregates the payment amounts
+                DB::raw('SUM(DISTINCT payments.Amount) as totalPaymentAmount'), // This aggregates the payment amounts
                 DB::raw('SUM(payments.Amount) - SUM(transaction_details.Price) as balanceAmount'),
             )
             ->groupBy(
@@ -623,34 +672,31 @@ class AdminController extends Controller
 
     public function remittanceapproved(Request $request)
     {
-        $results = DB::table('expenses')
-            ->join('payments', function($join) {
-                $join->on('expenses.Datetime_taken', '=', 'payments.Datetime_of_Payment');
+        $results = DB::table('cash')
+            ->leftJoin('expenses', function ($join) {
+                $join->on(DB::raw('YEAR(cash.Datetime_Remittance)'), '=', DB::raw('YEAR(expenses.Datetime_taken)'))
+                    ->on(DB::raw('MONTH(cash.Datetime_Remittance)'), '=', DB::raw('MONTH(expenses.Datetime_taken)'))
+                    ->on(DB::raw('DAY(cash.Datetime_Remittance)'), '=', DB::raw('DAY(expenses.Datetime_taken)'));
             })
-            // ->join('cash', function($join) {
-            //     $join->on('expenses.Datetime_taken', '=', 'cash.Datetime_Remittance');
-            // })
-            ->join('cash', function($join) {
-                $join->on(DB::raw('YEAR(expenses.Datetime_taken)'), '=', DB::raw('YEAR(cash.Datetime_Remittance)'))
-                     ->on(DB::raw('MONTH(expenses.Datetime_taken)'), '=', DB::raw('MONTH(cash.Datetime_Remittance)'))
-                     ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(cash.Datetime_Remittance)'));
+            ->leftJoin('payments', function ($join) {
+                $join->on(DB::raw('YEAR(cash.Datetime_Remittance)'), '=', DB::raw('YEAR(payments.Datetime_of_Payment)'))
+                    ->on(DB::raw('MONTH(cash.Datetime_Remittance)'), '=', DB::raw('MONTH(payments.Datetime_of_Payment)'))
+                    ->on(DB::raw('DAY(cash.Datetime_Remittance)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'));
             })
-            ->join('admins', function($join) {
-                $join->on('cash.Staff_ID', '=', 'admins.Admin_ID');
+            ->join('admins', function ($join) {
+                $join->on('cash.Staff_ID', '=', 'admins.Admin_ID')
+                    ->orOn('cash.Admin_ID', '=', 'admins.Admin_ID');
             })
             ->select(
                 'cash.Cash_ID',
+                'cash.Admin_ID',
                 'cash.Staff_ID',
                 'cash.Fund_status',
-                DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_fname, " ", admins.Admin_mname, " ",admins.Admin_lname SEPARATOR ", ") as name'),
-                DB::raw('SUM(DISTINCT cash.Remittance) AS remitAmount'),  // Removed DISTINCT for sums
-                DB::raw('SUM(DISTINCT cash.Initial_amount) AS initialAmount'),
-                DB::raw('SUM(DISTINCT expenses.Amount) AS ExpensesAmount'),
-                DB::raw('SUM(DISTINCT payments.Amount) AS paymentAmount'),
-
-                DB::raw('MONTH(expenses.Datetime_taken) AS expenseMonth'),
-                DB::raw('DAY(expenses.Datetime_taken) AS expenseDay'),
-                DB::raw('YEAR(expenses.Datetime_taken) AS expenseYear'),
+                DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_fname, " ", admins.Admin_mname, " ", admins.Admin_lname SEPARATOR ", ") as name'),
+                DB::raw('COALESCE(SUM(DISTINCT cash.Remittance), 0) AS remitAmount'),
+                DB::raw('COALESCE(SUM(DISTINCT cash.Initial_amount), 0) AS initialAmount'),
+                DB::raw('COALESCE(SUM(DISTINCT expenses.Amount), 0) AS ExpensesAmount'), // Return 0 if no expenses found
+                DB::raw('COALESCE(SUM(DISTINCT payments.Amount), 0) AS paymentAmount'),
 
                 DB::raw('MONTH(cash.Datetime_Remittance) AS remitMonth'),
                 DB::raw('DAY(cash.Datetime_Remittance) AS remitDay'),
@@ -661,12 +707,10 @@ class AdminController extends Controller
                 DB::raw('YEAR(payments.Datetime_of_Payment) AS paymentYear')
             )
             ->groupBy(
+                'cash.Admin_ID',
                 'cash.Cash_ID',
                 'cash.Staff_ID',
                 'cash.Fund_status',
-                'expenseMonth',
-                'expenseDay',
-                'expenseYear',
                 'remitMonth',
                 'remitDay',
                 'remitYear',
@@ -674,54 +718,59 @@ class AdminController extends Controller
                 'paymentDay',
                 'paymentYear'
             )
-            ->orderBy('remitMonth', 'desc') 
-            ->orderBy('remitDay', 'desc') 
-            ->orderBy('remitYear', 'desc') 
+            ->orderBy('Cash_ID', 'desc')
             ->get();
 
-        // Correcting the loop with matching variable names
-        foreach ($results as $adminId => &$data) {
-            // Calculate net income based on correct field names
+
+        // Calculate additional fields based on correct field names
+        foreach ($results as &$data) {
             $data->netIncome = $data->remitAmount - $data->initialAmount - $data->ExpensesAmount;
             
             // Total transactions and collections
             $data->totaltransac = $data->paymentAmount + $data->initialAmount;
             $data->totalcollec = $data->totaltransac - $data->ExpensesAmount;
             
-            // Total profit calculation
-            $data->totalprofit = $data->remitAmount - $data->totalcollec;
-        }
-
+            // Total profit calculation with conditions
+            if ($data->remitAmount > 0 && $data->paymentAmount > 0) {
+                $data->totalprofit = $data->remitAmount - $data->totalcollec;
+            } else {
+                $data->totalprofit = 0; // Set to zero if there are no remittances or payments
+            }
+        }        
+        
         return response()->json($results, 200);
+
 
     }
 
     public function printTransac(Request $request,$id)
     {
-        $results = DB::table('expenses')
-            ->join('payments', function($join) {
-                $join->on('expenses.Datetime_taken', '=', 'payments.Datetime_of_Payment');
+        $results = DB::table('cash')
+            ->leftJoin('expenses', function ($join) {
+                $join->on(DB::raw('YEAR(cash.Datetime_Remittance)'), '=', DB::raw('YEAR(expenses.Datetime_taken)'))
+                    ->on(DB::raw('MONTH(cash.Datetime_Remittance)'), '=', DB::raw('MONTH(expenses.Datetime_taken)'))
+                    ->on(DB::raw('DAY(cash.Datetime_Remittance)'), '=', DB::raw('DAY(expenses.Datetime_taken)'));
             })
-            ->join('cash', function($join) {
-                $join->on('expenses.Datetime_taken', '=', 'cash.Datetime_Remittance');
+            ->leftJoin('payments', function ($join) {
+                $join->on(DB::raw('YEAR(cash.Datetime_Remittance)'), '=', DB::raw('YEAR(payments.Datetime_of_Payment)'))
+                    ->on(DB::raw('MONTH(cash.Datetime_Remittance)'), '=', DB::raw('MONTH(payments.Datetime_of_Payment)'))
+                    ->on(DB::raw('DAY(cash.Datetime_Remittance)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'));
             })
-            ->join('admins', function($join) {
-                $join->on('cash.Staff_ID', '=', 'admins.Admin_ID');
+            ->join('admins', function ($join) {
+                $join->on('cash.Staff_ID', '=', 'admins.Admin_ID')
+                    ->orOn('cash.Admin_ID', '=', 'admins.Admin_ID');
             })
-            ->where('cash.Staff_ID', $id)
+            ->where('cash.Cash_ID',$id)
             ->select(
                 'cash.Cash_ID',
+                'cash.Admin_ID',
                 'cash.Staff_ID',
                 'cash.Fund_status',
-                DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_fname," ", admins.Admin_mname, " ",admins.Admin_lname SEPARATOR ", ") as name'),
-                DB::raw('SUM(DISTINCT cash.Remittance) AS remitAmount'),  // Removed DISTINCT for sums
-                DB::raw('SUM(DISTINCT cash.Initial_amount) AS initialAmount'),
-                DB::raw('SUM(DISTINCT expenses.Amount) AS ExpensesAmount'),
-                DB::raw('SUM(DISTINCT payments.Amount) AS paymentAmount'),
-
-                DB::raw('MONTH(expenses.Datetime_taken) AS expenseMonth'),
-                DB::raw('DAY(expenses.Datetime_taken) AS expenseDay'),
-                DB::raw('YEAR(expenses.Datetime_taken) AS expenseYear'),
+                DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_fname, " ", admins.Admin_mname, " ", admins.Admin_lname SEPARATOR ", ") as name'),
+                DB::raw('COALESCE(SUM(DISTINCT cash.Remittance), 0) AS remitAmount'),
+                DB::raw('COALESCE(SUM(DISTINCT cash.Initial_amount), 0) AS initialAmount'),
+                DB::raw('COALESCE(SUM(DISTINCT expenses.Amount), 0) AS ExpensesAmount'), // Return 0 if no expenses found
+                DB::raw('COALESCE(SUM(DISTINCT payments.Amount), 0) AS paymentAmount'),
 
                 DB::raw('MONTH(cash.Datetime_Remittance) AS remitMonth'),
                 DB::raw('DAY(cash.Datetime_Remittance) AS remitDay'),
@@ -732,12 +781,10 @@ class AdminController extends Controller
                 DB::raw('YEAR(payments.Datetime_of_Payment) AS paymentYear')
             )
             ->groupBy(
+                'cash.Admin_ID',
                 'cash.Cash_ID',
                 'cash.Staff_ID',
                 'cash.Fund_status',
-                'expenseMonth',
-                'expenseDay',
-                'expenseYear',
                 'remitMonth',
                 'remitDay',
                 'remitYear',
@@ -745,24 +792,26 @@ class AdminController extends Controller
                 'paymentDay',
                 'paymentYear'
             )
-            ->orderBy('remitMonth', 'desc') 
-            ->orderBy('remitDay', 'desc') 
-            ->orderBy('remitYear', 'desc') 
+            ->orderBy('Cash_ID', 'desc')
             ->get();
 
-        // Correcting the loop with matching variable names
-        foreach ($results as $adminId => &$data) {
-            // Calculate net income based on correct field names
+
+        // Calculate additional fields based on correct field names
+        foreach ($results as &$data) {
             $data->netIncome = $data->remitAmount - $data->initialAmount - $data->ExpensesAmount;
             
             // Total transactions and collections
             $data->totaltransac = $data->paymentAmount + $data->initialAmount;
             $data->totalcollec = $data->totaltransac - $data->ExpensesAmount;
             
-            // Total profit calculation
-            $data->totalprofit = $data->remitAmount - $data->totalcollec;
-        }
-
+            // Total profit calculation with conditions
+            if ($data->remitAmount > 0 && $data->paymentAmount > 0) {
+                $data->totalprofit = $data->remitAmount - $data->totalcollec;
+            } else {
+                $data->totalprofit = 0; // Set to zero if there are no remittances or payments
+            }
+        }        
+        
         return response()->json($results, 200);
     }
 

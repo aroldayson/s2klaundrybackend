@@ -261,6 +261,53 @@ class CustomerController extends Controller
         return response()->json(['transaction' => $transactions]);
     }
     
+    // public function store(Request $request)
+    // {
+    //     // Validate the request data
+    //     $validatedData = $request->validate([
+    //         'id' => 'required|integer', // Cust_ID
+    //         'trackingNumber' => 'required|string|max:255|unique:transactions,Tracking_number', // Primary key and uniqueness check
+    //         'laundry' => 'required|array',
+    //         'laundry.*.Categ_ID' => 'required|integer',
+    //         'laundry.*.Qty' => 'required|integer',
+    //         'Transac_status' => 'required|string'
+    //     ]);
+    
+    //     try {
+    //         $transaction = new Transactions();
+    //         // Step 1: Insert into the `transactions` table
+    //         $transaction->Transac_status = $validatedData['Transac_status']; // Get Transac_status from the object
+    //         $transaction->Cust_ID = $validatedData['id']; // Cust_ID
+    //         $transaction->Admin_ID = 0; // Assuming no Admin_ID for now
+    //         $transaction->Transac_date = now();
+    //         $transaction->Tracking_number = $validatedData['trackingNumber']; // Tracking_number as PK
+    //         $transaction->Received_datetime = now(); // Initially set to now
+    //         $transaction->Released_datetime = now(); // Initially set to now
+            
+    //         $transaction->save(); // This will save the transaction and return the ID
+    
+    //         // Get the transaction ID after saving
+    //         $transactionId = $transaction->Transac_ID; // Use the correct property for the primary key
+    
+    //         // Step 2: Insert each laundry item into `transaction_details` table
+    //         foreach ($validatedData['laundry'] as $item) {
+    //             $detail = new TransactionDetails();
+    //             $detail->Categ_ID = $item['Categ_ID'];
+    //             $detail->Transac_ID = $transactionId; // Use the transaction ID
+    //             $detail->Qty = $item['Qty'];
+    //             $detail->Weight = 0; // Set Weight to 0 or another appropriate value
+    //             $detail->Price = 0; // Set Price to 0 or another appropriate value
+    //             $detail->save(); // Save each transaction detail
+    //         }
+    
+    //         // Step 3: Return a success message
+    //         return response()->json(['message' => 'Transaction successfully created'], 201);
+    
+    //     } catch (\Exception $e) {
+    //         // Handle any errors that occur
+    //         return response()->json(['error' => 'Error inserting transaction: ' . $e->getMessage()], 500);
+    //     }
+    // }
     public function store(Request $request)
     {
         // Validate the request data
@@ -274,8 +321,8 @@ class CustomerController extends Controller
         ]);
     
         try {
-            $transaction = new Transactions();
-            // Step 1: Insert into the `transactions` table
+            $transaction = new Transaction();
+            // Step 1: Insert into the transactions table
             $transaction->Transac_status = $validatedData['Transac_status']; // Get Transac_status from the object
             $transaction->Cust_ID = $validatedData['id']; // Cust_ID
             $transaction->Admin_ID = 0; // Assuming no Admin_ID for now
@@ -289,9 +336,9 @@ class CustomerController extends Controller
             // Get the transaction ID after saving
             $transactionId = $transaction->Transac_ID; // Use the correct property for the primary key
     
-            // Step 2: Insert each laundry item into `transaction_details` table
+            // Step 2: Insert each laundry item into transaction_details table
             foreach ($validatedData['laundry'] as $item) {
-                $detail = new TransactionDetails();
+                $detail = new TransactionDetail();
                 $detail->Categ_ID = $item['Categ_ID'];
                 $detail->Transac_ID = $transactionId; // Use the transaction ID
                 $detail->Qty = $item['Qty'];
@@ -635,11 +682,5 @@ class CustomerController extends Controller
             'customerData' => $temp,
             'customerFirst' => $temp2
         ];
-    }
-
-
-
-    
-
-    
+    } 
 }
