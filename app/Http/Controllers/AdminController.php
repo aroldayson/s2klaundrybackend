@@ -145,6 +145,9 @@ class AdminController extends Controller
         if ($request->filled('Password')) {
             $input['Password'] = bcrypt($request->Password);
         }
+        // if ($request->filled('Password')) {
+        //     $input['Oldpassword'] = bcrypt($request->Oldpassword);
+        // }
 
         $staff->update($input);
 
