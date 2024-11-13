@@ -144,7 +144,11 @@ class AdminController extends Controller
 
         if ($request->filled('Password')) {
             $input['Password'] = bcrypt($request->Password);
+            $input['Oldpassword'] = $staff->Password;
+        } else {
+            $input['Password'] = $staff->Password; // retain the old password
         }
+        
         // if ($request->filled('Password')) {
         //     $input['Oldpassword'] = bcrypt($request->Oldpassword);
         // }
@@ -896,6 +900,20 @@ class AdminController extends Controller
             'totalPayments' => $payments,
             'total' =>  $total
         ], 200);
+    }
+
+
+    //ACCOUNT
+    public function admin(Request $request, $id)
+    {    
+        $staff = Admins::find($id);
+        
+        if (is_null($staff)) {
+            return response()->json(['message' => 'Staff not found'], 404);
+        }
+
+        return response()->json($staff, 200);
+
     }
 
 

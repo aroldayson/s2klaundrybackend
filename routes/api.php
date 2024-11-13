@@ -73,6 +73,10 @@ Route::get('/displayexpenses',[AdminController::class, 'displayexpenses']);
 Route::get('/displayincome',[AdminController::class, 'displayincome']);
 Route::get('/remittanceapproved',[AdminController::class, 'remittanceapproved']);
 
+
+// admin - account
+Route::get('/admin/{id}',[AdminController::class, 'admin']);
+
 //customer - login
 Route::post('logins', [CustomerController::class,'login']);
 Route::post('logouts', [CustomerController::class,'logout'])->middleware('auth:sanctum');
@@ -90,6 +94,7 @@ Route::get('/gethis/{id}',[CustomerController::class,'gethis']);
 Route::get('/cancelTrans/{id}',[CustomerController::class,'cancelTrans']);
 Route::get('/displayDet/{id}',[CustomerController::class,'displayDet']);
 Route::delete('/deleteDetails', [CustomerController::class, 'deleteDetails']);
+
 
 
 //customer - transactions

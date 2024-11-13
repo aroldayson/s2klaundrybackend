@@ -35,9 +35,8 @@ class CustomerController extends Controller
         
         if(!$user){
             return ['message'=>'The provided credentials are incorrect'];
-
-            
         }
+
         $custid = $user->Cust_ID;
         $token = $user->createToken($user->Cust_lname);
         return [
@@ -364,8 +363,8 @@ class CustomerController extends Controller
             ->where('transactions.Tracking_number', $id)
             ->get();
     
-        // return $temp;
-        return response()->json(['updatetransaction' => $temp],201);
+        return $temp;
+        // return response()->json(['updatetransaction' => $temp],201);
     }
 
     public function insertDetails(Request $request)
