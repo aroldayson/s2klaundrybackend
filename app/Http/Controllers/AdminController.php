@@ -182,7 +182,7 @@ class AdminController extends Controller
             $imageName = time() . '_' . $admin->Admin_ID . '.' . $extension;
             // $request->Admin_image->storeAs('public/profile_images', $imageName);
     
-            $htdocsPath = 'C:/xampp/htdocs/admin/profile_images'; 
+            $htdocsPath = 'D:/xampp/htdocs/admin/profile_images'; 
     
             if (!file_exists($htdocsPath)) {
                 mkdir($htdocsPath, 0777, true);
@@ -575,6 +575,17 @@ class AdminController extends Controller
         $customer->update($input);
 
         return response()->json(['message' => 'Customer updated successfully', 'customer' => $customer], 200);
+    }
+
+    
+    public function deletecustomer(Request $request, $id){
+        $Customers = Customers::find($id);
+        if(is_null($Customers)){
+            return response()->json(['message' => 'Customer not Found'], 404);
+        }
+        $Customers->delete();
+        return response()->json(null,204);
+
     }
 
     public function updateprofile(Request $request, $id)

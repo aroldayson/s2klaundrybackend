@@ -12,15 +12,15 @@ Route::get('/', function () {
     return "API";
 });
 
-Route::middleware(['admin'])->group(function () {
-    Route::get('/displaystaff', [AdminController::class, 'displaystaff']);
-    Route::get('/findstaff/{id}', [AdminController::class, 'findstaff']);
-    Route::post('/addstaff', [AdminController::class, 'addstaff']);
-    Route::put('/updatestaff/{id}', [AdminController::class, 'updatestaff']);
-    Route::delete('/deletestaff/{id}', [AdminController::class, 'deletestaff']);
-    Route::post('/update-profile-image/{id}', [AdminController::class, 'updateProfileImage']);
-    // Add other admin routes here
-});
+// Route::middleware(['admin'])->group(function () {
+//     Route::get('/displaystaff', [AdminController::class, 'displaystaff']);
+//     Route::get('/findstaff/{id}', [AdminController::class, 'findstaff']);
+//     Route::post('/addstaff', [AdminController::class, 'addstaff']);
+//     Route::put('/updatestaff/{id}', [AdminController::class, 'updatestaff']);
+//     Route::delete('/deletestaff/{id}', [AdminController::class, 'deletestaff']);
+//     Route::post('/update-profile-image/{id}', [AdminController::class, 'updateProfileImage']);
+//     // Add other admin routes here
+// });
 
 //admin - loginadmin
 Route::post('/login',[AdminController::class, 'login']);
@@ -59,6 +59,7 @@ Route::get('/findcustomer/{id}',[AdminController::class, 'findcustomer']);
 Route::get('/findtrans/{id}',[AdminController::class, 'findtrans']);
 Route::get('/printtrans/{id}',[AdminController::class, 'printtrans']);
 Route::put('/updateprofilecus/{id}',[AdminController::class, 'updateprofilecus']);
+Route::delete('/deletecustomer/{id}',[AdminController::class, 'deletecustomer']);
 Route::post('/updateprofile/{id}', [AdminController::class, 'updateprofile']);
 
 // admin - transactions
@@ -72,6 +73,9 @@ Route::get('/approveremit/{id}',[AdminController::class, 'approveremit']);
 Route::get('/displayexpenses',[AdminController::class, 'displayexpenses']);
 Route::get('/displayincome',[AdminController::class, 'displayincome']);
 Route::get('/remittanceapproved',[AdminController::class, 'remittanceapproved']);
+
+// admin- account
+Route::get('/admin/{id}',[AdminController::class, 'findstaff']);
 
 //customer - login
 Route::post('logins', [CustomerController::class,'login']);
