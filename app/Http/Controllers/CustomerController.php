@@ -35,9 +35,8 @@ class CustomerController extends Controller
         
         if(!$user){
             return ['message'=>'The provided credentials are incorrect'];
-
-            
         }
+
         $custid = $user->Cust_ID;
         $token = $user->createToken($user->Cust_lname);
         return [
@@ -321,7 +320,7 @@ class CustomerController extends Controller
         ]);
     
         try {
-            $transaction = new Transaction();
+            $transaction = new Transactions();
             // Step 1: Insert into the transactions table
             $transaction->Transac_status = $validatedData['Transac_status']; // Get Transac_status from the object
             $transaction->Cust_ID = $validatedData['id']; // Cust_ID
@@ -338,7 +337,7 @@ class CustomerController extends Controller
     
             // Step 2: Insert each laundry item into transaction_details table
             foreach ($validatedData['laundry'] as $item) {
-                $detail = new TransactionDetail();
+                $detail = new TransactionDetails();
                 $detail->Categ_ID = $item['Categ_ID'];
                 $detail->Transac_ID = $transactionId; // Use the transaction ID
                 $detail->Qty = $item['Qty'];
@@ -359,11 +358,13 @@ class CustomerController extends Controller
     public function displayDet($id) {
         $temp = DB::table('transactions')
             ->leftJoin('transaction_details', 'transactions.Transac_ID', '=', 'transaction_details.Transac_ID')
-            ->select('transactions.*', 'transaction_details.*') // Make sure to select from the correct alias
+            ->leftJoin('laundry_categories', 'transaction_details.Categ_ID', '=', 'laundry_categories.Categ_ID')
+            ->select('transactions.*', 'transaction_details.*','laundry_categories.*') // Make sure to select from the correct alias
             ->where('transactions.Tracking_number', $id)
             ->get();
     
         return $temp;
+        // return response()->json(['updatetransaction' => $temp],201);
     }
 
     public function insertDetails(Request $request)
@@ -451,7 +452,7 @@ class CustomerController extends Controller
             )
             ->get();
 
-            Transaction::where('Tracking_number', $id)
+            Transactions::where('Tracking_number', $id)
                 ->update(['Transac_status' => 'cancel']);
 
         return response()->json(['transaction' => $transactions], 200);
