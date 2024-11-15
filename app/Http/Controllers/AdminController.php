@@ -189,7 +189,7 @@ class AdminController extends Controller
             $imageName = time() . '_' . $admin->Admin_ID . '.' . $extension;
             // $request->Admin_image->storeAs('public/profile_images', $imageName);
     
-            $htdocsPath = 'D:/xampp/htdocs/admin/profile_images'; 
+            $htdocsPath = 'c:/xampp/htdocs/admin/profile_images'; 
     
             if (!file_exists($htdocsPath)) {
                 mkdir($htdocsPath, 0777, true);
