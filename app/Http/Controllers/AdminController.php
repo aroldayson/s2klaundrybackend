@@ -713,6 +713,7 @@ class AdminController extends Controller
 
         $data = Transactions::join('customers', 'transactions.Cust_ID', '=', 'customers.Cust_ID')
         ->join('transaction_details', 'transactions.Transac_ID', '=', 'transaction_details.Transac_ID')
+        ->LeftJoin('transaction_status', 'transactions.Transac_ID', '=', 'transaction_status.Transac_ID')
         ->join('admins', 'admins.Admin_ID', '=', 'transactions.Admin_ID')
         ->join('laundry_categories', 'transaction_details.Categ_ID', '=', 'laundry_categories.Categ_ID')
         ->whereDate('transactions.Transac_date', $date)
@@ -720,9 +721,9 @@ class AdminController extends Controller
             'transactions.Transac_ID',
             'transactions.Tracking_number',
             'transactions.Transac_date',
-            'transactions.Transac_status',
-            'transactions.Received_datetime',
-            'transactions.Released_datetime',
+            'transaction_status.Transac_status',
+            // 'transactions.Received_datetime',
+            // 'transactions.Released_datetime',
             // 'transactions.Staffincharge',
             'customers.Cust_fname', 
             'customers.Cust_lname', 
@@ -736,9 +737,9 @@ class AdminController extends Controller
             'transactions.Transac_ID',
             'transactions.Tracking_number',
             'transactions.Transac_date',
-            'transactions.Transac_status',
-            'transactions.Received_datetime',
-            'transactions.Released_datetime',
+            'transaction_status.Transac_status',
+            // 'transactions.Received_datetime',
+            // 'transactions.Released_datetime',
             // 'transactions.Staffincharge',
             'customers.Cust_fname', 
             'customers.Cust_lname', 
