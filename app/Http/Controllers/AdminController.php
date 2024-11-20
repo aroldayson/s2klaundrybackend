@@ -527,6 +527,7 @@ class AdminController extends Controller
                                         ->sum('Price');
         $transaction = DB::table('transactions')
                     ->where('transactions.Cust_ID', $id)
+                    ->LeftJoin('transaction_status', 'transactions.Transac_ID', '=', 'transaction_status.Transac_ID')
                     ->LeftJoin('customers', 'transactions.Cust_ID', '=', 'customers.Cust_ID')
                     ->LeftJoin('transaction_details', 'transactions.Transac_ID', '=', 'transaction_details.Transac_ID')
                     ->LeftJoin('laundry_categories', 'transaction_details.Categ_ID', '=', 'laundry_categories.Categ_ID')
@@ -535,9 +536,10 @@ class AdminController extends Controller
                             'transactions.Transac_ID',
                             'transactions.Tracking_number',
                             'transactions.Transac_date',
-                            'transactions.Transac_status',
-                            'transactions.Received_datetime',
-                            'transactions.Released_datetime',
+                            'transaction_status.Transac_status',
+                            'transaction_status.TransacStatus_datetime',
+                            // 'transactions.Received_datetime',
+                            // 'transactions.Released_datetime',
                             'customers.Cust_ID', 
                             'customers.Cust_fname', 
                             'customers.Cust_lname', 
@@ -551,9 +553,10 @@ class AdminController extends Controller
                             'transactions.Transac_ID',
                             'transactions.Tracking_number',
                             'transactions.Transac_date',
-                            'transactions.Transac_status',
-                            'transactions.Received_datetime',
-                            'transactions.Released_datetime',
+                            'transaction_status.Transac_status',
+                            'transaction_status.TransacStatus_datetime',
+                            // 'transactions.Received_datetime',
+                            // 'transactions.Released_datetime',
                             'customers.Cust_ID', 
                             'customers.Cust_fname', 
                             'customers.Cust_lname', 
@@ -577,6 +580,7 @@ class AdminController extends Controller
         $result = Transactions::where('transactions.Transac_ID', $id)
             ->join('customers', 'transactions.Cust_ID', '=', 'customers.Cust_ID')
             ->join('transaction_details', 'transactions.Transac_ID', '=', 'transaction_details.Transac_ID')
+            ->join('transaction_status', 'transactions.Transac_ID', '=', 'transaction_status.Transac_ID')
             ->join('admins', 'admins.Admin_ID', '=', 'transactions.Admin_ID')
             ->join('laundry_categories', 'transaction_details.Categ_ID', '=', 'laundry_categories.Categ_ID')
             ->leftJoin('payments', 'transactions.Transac_ID', '=', 'payments.Transac_ID')
@@ -584,8 +588,8 @@ class AdminController extends Controller
                 'transaction_details.Categ_ID',
                 'transactions.Transac_ID',
                 'transactions.Tracking_number',
-                'transactions.Transac_status',
-                'transactions.Released_datetime',
+                'transaction_status.Transac_status',
+                // 'transactions.Released_datetime',
                 // 'transactions.Staffincharge',
                 'transaction_details.Qty',
                 'transaction_details.Weight',
@@ -603,9 +607,9 @@ class AdminController extends Controller
             ->groupBy(
                 'transaction_details.Categ_ID',
                 'transactions.Transac_ID',
-                'transactions.Transac_status',
+                'transaction_status.Transac_status',
                 'transactions.Tracking_number',
-                'transactions.Released_datetime',
+                // 'transactions.Released_datetime',
                 // 'transactions.Staffincharge',
                 'transaction_details.Qty',
                 'transaction_details.Weight',
@@ -646,7 +650,6 @@ class AdminController extends Controller
 
         return response()->json(['message' => 'Customer updated successfully', 'customer' => $customer], 200);
     }
-
     
     public function deletecustomer(Request $request, $id){
         $Customers = Customers::find($id);
