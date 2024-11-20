@@ -633,8 +633,13 @@ class AdminController extends Controller
 
         $input = $request->all();
 
+
         if ($request->filled('Cust_password')) {
             $input['Cust_password'] = bcrypt($request->Cust_password);
+            $input['Cust_OldPassword'] = $staff->Cust_password;
+        }
+        else {
+            unset($input['Cust_password']); 
         }
 
         $customer->update($input);
