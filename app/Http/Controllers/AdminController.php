@@ -90,9 +90,20 @@ class AdminController extends Controller
 
     // STAFF
     public function displaystaff(){
-        // return response()->json(Admin::all(), 200);
-        return response()->json(Admins::orderBy('Admin_ID', 'desc')->get(), 200);
+
+        $admins = Admins::orderBy('Admin_ID', 'desc')->get();
+
+        $admins = $admins->map(function ($admin) {
+            $admin->Admin_image = $admin->Admin_image
+                ? asset('images/' . $admin->Admin_image)
+                : null; 
+            return $admin;
+        });
+
+        return response()->json($admins, 200);
+
     }
+    
     public function findstaff(Request $request, $id)
     {    
         $staff = Admins::find($id);
@@ -146,18 +157,17 @@ class AdminController extends Controller
             $input['Password'] = bcrypt($request->Password);
             $input['Oldpassword'] = $staff->Password;
         } else {
-            $input['Password'] = $staff->Password; // retain the old password
+            unset($input['Password']); 
         }
-        
-        // if ($request->filled('Password')) {
-        //     $input['Oldpassword'] = bcrypt($request->Oldpassword);
-        // }
 
         $staff->update($input);
 
-        return response()->json(['message' => 'Customer updated successfully', 'customer' => $staff], 200);
-
+        return response()->json([
+            'message' => 'Customer updated successfully',
+            'customer' => $staff
+        ], 200);
     }
+
     public function deletestaff(Request $request, $id){
         $staff = Admins::find($id);
         if(is_null($staff)){
@@ -167,47 +177,95 @@ class AdminController extends Controller
         return response()->json(null,204);
 
     }
+    // public function updateProfileImage(Request $request, $id)
+    // {
+    //     $request->validate([
+    //         'Admin_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048'
+    //     ]);
+    
+    //     $admin = Admins::findOrFail($id);
+    
+    //     if ($request->hasFile('Admin_image')) {
+    //         if ($admin->Admin_image) {
+    //             Storage::delete('public/profile_images/' . $admin->Admin_image);
+                
+    //             $htdocsImagePath = 'C:/xampp/htdocs/admin/profile_images/' . $admin->Admin_image;
+    //             if (file_exists($htdocsImagePath)) {
+    //                 unlink($htdocsImagePath);
+    //             }
+    //         }
+    
+    //         $extension = $request->Admin_image->extension();
+    //         $imageName = time() . '_' . $admin->Admin_ID . '.' . $extension;
+    //         $request->Admin_image->storeAs('public/profile_images', $imageName);
+    
+    //         $htdocsPath = 'c:/xampp/htdocs/admin/profile_images'; 
+    
+    //         if (!file_exists($htdocsPath)) {
+    //             mkdir($htdocsPath, 0777, true);
+    //         }
+    
+    //         $request->Admin_image->move($htdocsPath, $imageName);
+    
+    //         $admin->Admin_image = $imageName;
+    //         $admin->save();
+    
+    //         return response()->json([
+    //             'message' => 'Profile image updated successfully',
+    //             'image_url' => asset('profile_images/' . $imageName) 
+    //         ], 200);
+    //     }
+    //     $url = asset('storage/profile_images/' . $imageName);
+
+    //     // return response()->json(['message' => 'No image file uploaded'], 400);
+    //     return response()->json([
+    //         'message' => 'Profile image updated successfully',
+    //         'image_url' => asset('storage/profile_images/' . $imageName) 
+    //     ], 200);
+        
+    // }
     public function updateProfileImage(Request $request, $id)
     {
         $request->validate([
             'Admin_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048'
         ]);
-    
+
         $admin = Admins::findOrFail($id);
-    
+
         if ($request->hasFile('Admin_image')) {
+            // Delete the old image if it exists
             if ($admin->Admin_image) {
-                Storage::delete('public/profile_images/' . $admin->Admin_image);
-                
-                $htdocsImagePath = 'C:/xampp/htdocs/admin/profile_images/' . $admin->Admin_image;
-                if (file_exists($htdocsImagePath)) {
-                    unlink($htdocsImagePath);
+                $oldImagePath = public_path('images/' . $admin->Admin_image);
+                if (file_exists($oldImagePath)) {
+                    unlink($oldImagePath);
                 }
             }
-    
-            $extension = $request->Admin_image->extension();
+
+            // Get the file extension and generate a unique name for the image
+            $extension = $request->file('Admin_image')->extension();
             $imageName = time() . '_' . $admin->Admin_ID . '.' . $extension;
-            // $request->Admin_image->storeAs('public/profile_images', $imageName);
-    
-            $htdocsPath = 'c:/xampp/htdocs/admin/profile_images'; 
-    
-            if (!file_exists($htdocsPath)) {
-                mkdir($htdocsPath, 0777, true);
-            }
-    
-            $request->Admin_image->move($htdocsPath, $imageName);
-    
+
+            // Move the file to the 'public/images' directory
+            $destinationPath = public_path('images');
+            $request->file('Admin_image')->move($destinationPath, $imageName);
+
+            // Update the database with the new image name
             $admin->Admin_image = $imageName;
             $admin->save();
-    
+
+            // Generate the public URL for the new image
+            $imageUrl = asset('images/' . $imageName);
+
             return response()->json([
                 'message' => 'Profile image updated successfully',
-                'image_url' => asset('profile_images/' . $imageName) 
+                'image_url' => $imageUrl
             ], 200);
         }
-    
+
         return response()->json(['message' => 'No image file uploaded'], 400);
     }
+
+
 
     // PRICE MANAGEMENT
     public function pricedisplay()
@@ -926,6 +984,31 @@ class AdminController extends Controller
         return response()->json($staff, 200);
 
     }
+    public function updateaccount(Request $request, $id)
+    {
+        $staff = Admins::find($id);
+
+        if (is_null($staff)) {
+            return response()->json(['message' => 'Customer not found'], 404);
+        }
+
+        $input = $request->all();
+
+        if ($request->filled('Password')) {
+            $input['Password'] = bcrypt($request->Password);
+            $input['Admin_OldPassword'] = $staff->Password;
+        } else {
+            unset($input['Password']); 
+        }
+
+        $staff->update($input);
+
+        return response()->json([
+            'message' => 'Customer updated successfully',
+            'customer' => $staff
+        ], 200);
+    }
+
 
 
 

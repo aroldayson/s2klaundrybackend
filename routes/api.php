@@ -74,8 +74,9 @@ Route::get('/displayexpenses',[AdminController::class, 'displayexpenses']);
 Route::get('/displayincome',[AdminController::class, 'displayincome']);
 Route::get('/remittanceapproved',[AdminController::class, 'remittanceapproved']);
 
-// admin- account
+// admin- account 
 Route::get('/admin/{id}',[AdminController::class, 'findstaff']);
+Route::put('/updateaccount/{id}',[AdminController::class, 'updateaccount']);
 
 
 
