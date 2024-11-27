@@ -18,12 +18,14 @@ use App\Models\TransactionDetails;
 use App\Models\Transactions;
 use App\Models\Cashdetails;
 use Illuminate\Support\Facades\Log;
+use App\Models\TransactionStatus;
 
 class CustomerController extends Controller
 {
 
     //login
-    public function login(Request $request){
+    public function login(Request $request)
+    {
 
         // return $request;
         $request->validate([
@@ -189,8 +191,8 @@ class CustomerController extends Controller
                         ]);
     
                     // Fetch the Tracking_number from transaction_details
-                    $trackingNumber = DB::table('transaction_details')
-                        ->where('TransacDet_ID', $data['TransacDet_ID'])
+                    $trackingNumber = DB::table('transactions')
+                        ->where('Transac_ID', $data['TransacDet_ID'])
                         ->value('Tracking_number');
     
                     // Update the transactions table
@@ -209,7 +211,7 @@ class CustomerController extends Controller
                     DB::table('transaction_details')->insert([
                         'Categ_ID' => $data['Categ_ID'],
                         'Qty' => $data['Qty'],
-                        'Tracking_number' => $data['Tracking_number'],
+                        'Transac_ID' => $data['Transac_ID'],
                     ]);
                 }
             }
@@ -230,132 +232,75 @@ class CustomerController extends Controller
             ->join('transaction_details', 'transactions.Transac_ID', '=', 'transaction_details.Transac_ID')
             ->join('laundry_categories', 'transaction_details.Categ_ID', '=', 'laundry_categories.Categ_ID')
             ->leftJoin('payments', 'transactions.Transac_ID', '=', 'payments.Transac_ID')
+            ->join('transaction_status', 'transactions.Transac_ID', '=', 'transaction_status.Transac_ID')
             ->select(
-                DB::raw('GROUP_CONCAT(laundry_categories.Category SEPARATOR ", ") as Category'),
+                DB::raw('GROUP_CONCAT(DISTINCT  laundry_categories.Category SEPARATOR ", ") as Category'),
+                DB::raw('MAX(DISTINCT  transaction_status.Transac_status) as trans_stat'), // Get only the first status
                 'customers.Cust_fname as fname',
                 'customers.Cust_lname as lname',
-                'transactions.Received_datetime as rec_date',
-                'transactions.Released_datetime as rel_date',
-                DB::raw('SUM(transaction_details.Qty) as totalQty'),
-                DB::raw('SUM(transaction_details.Weight) as totalWeight'),
-                DB::raw('SUM(transaction_details.Price) as totalprice'),
+                DB::raw('SUM(DISTINCT transaction_details.Qty) as totalQty'),
+                DB::raw('SUM(DISTINCT transaction_details.Weight) as totalWeight'),
+                DB::raw('SUM(DISTINCT transaction_details.Price) as totalprice'),
                 'transactions.Tracking_number as track_num',
                 'transactions.Transac_date as trans_date',
-                'transactions.Transac_status as trans_stat',
                 'transactions.Transac_ID as trans_ID'
             )
             ->where('transactions.Cust_ID', $id)
             ->groupBy(
                 'customers.Cust_fname',
                 'customers.Cust_lname',
-                'transactions.Received_datetime',
-                'transactions.Released_datetime',
                 'transactions.Tracking_number',
                 'transactions.Transac_date',
-                'transactions.Transac_status',
                 'transactions.Transac_ID'
             )
             ->get();
-    
+
         return response()->json(['transaction' => $transactions]);
     }
-    
-    // public function store(Request $request)
-    // {
-    //     // Validate the request data
-    //     $validatedData = $request->validate([
-    //         'id' => 'required|integer', // Cust_ID
-    //         'trackingNumber' => 'required|string|max:255|unique:transactions,Tracking_number', // Primary key and uniqueness check
-    //         'laundry' => 'required|array',
-    //         'laundry.*.Categ_ID' => 'required|integer',
-    //         'laundry.*.Qty' => 'required|integer',
-    //         'Transac_status' => 'required|string'
-    //     ]);
-    
-    //     try {
-    //         $transaction = new Transactions();
-    //         // Step 1: Insert into the `transactions` table
-    //         $transaction->Transac_status = $validatedData['Transac_status']; // Get Transac_status from the object
-    //         $transaction->Cust_ID = $validatedData['id']; // Cust_ID
-    //         $transaction->Admin_ID = 0; // Assuming no Admin_ID for now
-    //         $transaction->Transac_date = now();
-    //         $transaction->Tracking_number = $validatedData['trackingNumber']; // Tracking_number as PK
-    //         $transaction->Received_datetime = now(); // Initially set to now
-    //         $transaction->Released_datetime = now(); // Initially set to now
-            
-    //         $transaction->save(); // This will save the transaction and return the ID
-    
-    //         // Get the transaction ID after saving
-    //         $transactionId = $transaction->Transac_ID; // Use the correct property for the primary key
-    
-    //         // Step 2: Insert each laundry item into `transaction_details` table
-    //         foreach ($validatedData['laundry'] as $item) {
-    //             $detail = new TransactionDetails();
-    //             $detail->Categ_ID = $item['Categ_ID'];
-    //             $detail->Transac_ID = $transactionId; // Use the transaction ID
-    //             $detail->Qty = $item['Qty'];
-    //             $detail->Weight = 0; // Set Weight to 0 or another appropriate value
-    //             $detail->Price = 0; // Set Price to 0 or another appropriate value
-    //             $detail->save(); // Save each transaction detail
-    //         }
-    
-    //         // Step 3: Return a success message
-    //         return response()->json(['message' => 'Transaction successfully created'], 201);
-    
-    //     } catch (\Exception $e) {
-    //         // Handle any errors that occur
-    //         return response()->json(['error' => 'Error inserting transaction: ' . $e->getMessage()], 500);
-    //     }
-    // }
-    public function store(Request $request)
+
+    public function addtrans(Request $request)
     {
-        // Validate the request data
-        $validatedData = $request->validate([
-            'id' => 'required|integer', // Cust_ID
-            'trackingNumber' => 'required|string|max:255|unique:transactions,Tracking_number', // Primary key and uniqueness check
-            'laundry' => 'required|array',
+        $request->validate([
+            'Cust_ID' => 'required|integer|exists:customers,Cust_ID',
+            'Tracking_number' => 'required|string|max:255|unique:transactions,Tracking_number',
+            'laundry' => 'required|array|min:1',
             'laundry.*.Categ_ID' => 'required|integer',
             'laundry.*.Qty' => 'required|integer',
-            'Transac_status' => 'required|string'
+            'Transac_status' => 'required|string',
         ]);
-    
-        try {
-            $transaction = new Transactions();
-            // Step 1: Insert into the transactions table
-            $transaction->Transac_status = $validatedData['Transac_status']; // Get Transac_status from the object
-            $transaction->Cust_ID = $validatedData['id']; // Cust_ID
-            $transaction->Admin_ID = 0; // Assuming no Admin_ID for now
-            $transaction->Transac_date = now();
-            $transaction->Tracking_number = $validatedData['trackingNumber']; // Tracking_number as PK
-            $transaction->Received_datetime = now(); // Initially set to now
-            $transaction->Released_datetime = now(); // Initially set to now
-            
-            $transaction->save(); // This will save the transaction and return the ID
-    
-            // Get the transaction ID after saving
-            $transactionId = $transaction->Transac_ID; // Use the correct property for the primary key
-    
-            // Step 2: Insert each laundry item into transaction_details table
-            foreach ($validatedData['laundry'] as $item) {
-                $detail = new TransactionDetails();
-                $detail->Categ_ID = $item['Categ_ID'];
-                $detail->Transac_ID = $transactionId; // Use the transaction ID
-                $detail->Qty = $item['Qty'];
-                $detail->Weight = 0; // Set Weight to 0 or another appropriate value
-                $detail->Price = 0; // Set Price to 0 or another appropriate value
-                $detail->save(); // Save each transaction detail
+
+
+        // Insert into transactions table and get Transac_ID
+        $transacId = DB::table('transactions')->insertGetId([
+            'Cust_ID' => $request->Cust_ID,
+            'Tracking_number' => $request->Tracking_number,
+            // 'Transac_status' => $request->Transac_status,
+            'Transac_date' => now(),
+        ]);
+
+        $transacStatusId = DB::table('transaction_status')->insertGetId([
+            'Transac_status' => $request->Transac_status, 
+            'TransacStatus_datetime' => now(),
+            'Transac_ID' =>  $transacId,  // Specify the value for Transac_ID
+        ]);
+
+        $transactionDetails = [];
+            foreach ($request->laundry as $laundryItem) {
+                $transactionDetails[] = [
+                    'Transac_ID' => $transacId,
+                    'Categ_ID' => $laundryItem['Categ_ID'],
+                    'Qty' => $laundryItem['Qty'],
+                ];
             }
-    
-            // Step 3: Return a success message
-            return response()->json(['message' => 'Transaction successfully created'], 201);
-    
-        } catch (\Exception $e) {
-            // Handle any errors that occur
-            return response()->json(['error' => 'Error inserting transaction: ' . $e->getMessage()], 500);
-        }
+            DB::table('transaction_details')->insert($transactionDetails);
+
+        return response()->json(['Transaction' => $transacId,'Transaction_details' => $transactionDetails], 200);
+   
     }
 
-    public function displayDet($id) {
+
+    public function displayDet($id)
+    {
         $temp = DB::table('transactions')
             ->leftJoin('transaction_details', 'transactions.Transac_ID', '=', 'transaction_details.Transac_ID')
             ->leftJoin('laundry_categories', 'transaction_details.Categ_ID', '=', 'laundry_categories.Categ_ID')
@@ -371,19 +316,39 @@ class CustomerController extends Controller
     {
         // Validate each item in the request array
         $validatedData = $request->validate([
-            '*.Categ_ID' => 'required|integer',        // Category ID is required
-            '*.Qty' => 'required|integer',             // Quantity is required
-            '*.Tracking_number' => 'required|string',  // Tracking number is required, no Transac_status
+            '*.Categ_ID' => 'required|integer',
+            '*.Qty' => 'required|integer',
+            '*.Tracking_Number' => 'required|string', // Ensure this matches your payload key
+        ], [
+            '*.Tracking_Number.required' => 'Each detail must have a Tracking_Number.',
+            '*.Tracking_Number.string' => 'Tracking_Number must be a string.',
         ]);
-    
+
         try {
-            // Insert all validated data into the transaction_details table
-            DB::table('transaction_details')->insert($validatedData);
+            foreach ($validatedData as $detail) {
+                $transaction = DB::table('transactions')
+                    ->where('Tracking_Number', $detail['Tracking_Number'])
+                    ->first();
+
+                if (!$transaction) {
+                    return response()->json(['error' => 'Transaction with Tracking_Number ' . $detail['Tracking_Number'] . ' not found.'], 404);
+                }
+
+                DB::table('transaction_details')->insert([
+                    'Categ_ID' => $detail['Categ_ID'],
+                    'Qty' => $detail['Qty'],
+                    'Transac_ID' => $transaction->Transac_ID, // Reference to related transaction
+                ]);
+            }
+
             return response()->json(['message' => 'New transaction details added successfully']);
         } catch (\Exception $e) {
+            Log::error('Insert Details Error:', ['exception' => $e]);
             return response()->json(['error' => 'Error: ' . $e->getMessage()], 500);
         }
     }
+
+    
 
     public function updateTransactionStatus($trackingNumber, $transacStatus)
     {
@@ -423,19 +388,19 @@ class CustomerController extends Controller
         }
     }
 
-    public function cancelTrans(Request $request, $id){
+    public function cancelTrans(Request $request, $id)
+    {
         $transactions = DB::table('transactions')
             ->join('customers', 'transactions.Cust_ID', '=', 'customers.Cust_ID')
             ->join('transaction_details', 'transactions.Transac_ID', '=', 'transaction_details.Transac_ID')
             ->join('laundry_categories', 'transaction_details.Categ_ID', '=', 'laundry_categories.Categ_ID')
+            ->join('transaction_status', 'transactions.Transac_ID', '=', 'transaction_status.Transac_ID')
             ->select(
                 'transactions.Tracking_number',
                 'transactions.Transac_date',
-                'transactions.Transac_status',
-                'transactions.Received_datetime',
-                'transactions.Released_datetime',
                 'customers.Cust_fname', 
                 'customers.Cust_lname', 
+                'transaction_status.Transac_status',
                 DB::raw('GROUP_CONCAT(laundry_categories.Category SEPARATOR ", ") as Category'),
                 DB::raw('SUM(transaction_details.Price) as totalprice'),
                 DB::raw('SUM(transaction_details.Qty) as totalQty'),
@@ -444,107 +409,156 @@ class CustomerController extends Controller
             ->groupBy(
                 'transactions.Tracking_number',
                 'transactions.Transac_date',
-                'transactions.Transac_status',
-                'transactions.Received_datetime',
-                'transactions.Released_datetime',
                 'customers.Cust_fname', 
                 'customers.Cust_lname', 
+                'transaction_status.Transac_status',
             )
             ->get();
 
-            Transactions::where('Tracking_number', $id)
+            TransactionStatus::where('Transac_ID', $id)
                 ->update(['Transac_status' => 'cancel']);
 
         return response()->json(['transaction' => $transactions], 200);
     }
 
-    private function insertPayment($trackingNumber, $modeOfPayment, $amount,$cust_id)
+    private function insertPayment($trackingNumber, $modeOfPayment, $amount, $custId)
     {
-        return DB::table('payments')->insertGetId([
-            'Transac_ID' => $trackingNumber,
-            'Amount' => $amount,
-            'Mode_of_Payment' => $modeOfPayment, 
+        return DB::table('payments')->insert([
+            'Cust_ID' => $request->Cust_ID,
+            'Transac_ID' => $request->trackingNumber,
+            'Amount' => $request->Amount,
+            'Mode_of_Payment' => $request->Mode_of_Payment,
             'Datetime_of_Payment' => now(),
-            'Cust_ID' => $cust_id 
         ]);
+        
     }
 
-    public function insertProofOfPayment($paymentId)
-    {
-        return DB::table('proof_of_payments')->insertGetId([
-            'Payment_ID' => $paymentId,
-            'Proof_filename' => '', // Placeholder, will be updated with file
-            'Upload_datetime' => now()
-        ]);
-    }
-    private function handleImageUpload($request, $proofPayment)
-    {
-        // If there's an existing image, delete it from storage
-        if ($proofPayment->Pro_filename) {
-            // Delete from public storage
-            Storage::disk('public')->delete('profile_images/' . $proofPayment->Pro_filename);
 
-            // Also delete from htdocs if the image exists there
-            $htdocsImagePath = public_path('profile_images/' . $proofPayment->Pro_filename);
-            if (file_exists($htdocsImagePath)) {
-                unlink($htdocsImagePath); // Delete from htdocs as well
+    public function insertProofOfPayment(Request $request, $paymentId)
+    {
+        try {
+            // Validate the incoming request to ensure the file is included
+            $validated = $request->validate([
+                'Proof_filename' => 'required|file|image|mimes:jpeg,png,jpg|max:4096',  // Validate file type and size
+                'Cust_ID' => 'required|string',
+                'Mode_of_Payment' => 'required|string',
+                'Amount' => 'required|numeric|min:1',
+            ]);
+    
+            // Check if the file is present and is valid
+            if ($request->hasFile('Proof_filename') && $request->file('Proof_filename')->isValid()) {
+                $file = $request->file('Proof_filename');
+                
+                // Generate a unique filename based on the current timestamp and original name
+                $filename = time() . '_' . $file->getClientOriginalName();
+    
+                // Store the file in the 'public/receipt' directory
+                $file->storeAs('public/receipt', $filename);
+    
+                // Log the filename to ensure it's being uploaded
+                \Log::info('Uploaded file: ' . $filename);
+            } else {
+                throw new \Exception('File upload failed or no file uploaded');
             }
+    
+            // Insert the record into the database with the filename
+            $proofOfPaymentId = DB::table('proof_of_payments')->insertGetId([
+                'Payment_ID' => $paymentId,
+                'Proof_filename' => $filename,  // Store the filename in the database
+                'Upload_datetime' => now(),
+            ]);
+    
+            return response()->json(['message' => 'Payment uploaded successfully', 'id' => $proofOfPaymentId], 200);
+        } catch (\Exception $e) {
+            // Log the error for debugging
+            \Log::error('Error inserting proof of payment: ' . $e->getMessage());
+            
+            return response()->json(['error' => 'Failed to insert proof of payment: ' . $e->getMessage()], 500);
         }
-
-        // Generate a new image name based on the timestamp and Proof ID
-        $extension = $request->Pro_filename->extension();
-        $imageName = time() . '_' . $proofPayment->Pro_ID . '.' . $extension;
-
-        // Store the image in Laravel's public storage
-        $request->Pro_filename->storeAs('public/receipt', $imageName);
-
-        // Define the htdocs path (ensure the directory exists)
-        $htdocsPath = 'D:\larabells\api-app1\public\storage\receipt';
-        if (!file_exists($htdocsPath)) {
-            mkdir($htdocsPath, 0777, true); // Create the folder if it doesn't exist
-        }
-
-        // Move the uploaded image to htdocs
-        $request->Pro_filename->move($htdocsPath, $imageName);
-
-        // Update the image filename in the proof_of_payments table
-        DB::table('proof_of_payments')
-            ->where('Proof_ID', $proofPayment->Pro_ID)
-            ->update(['Proof_filename' => $imageName]);
     }
 
+
+    private function handleImageUpload(Request $request, $trackingNumber)
+    {
+        // Validate the incoming request
+        $validated = $request->validate([
+            'Proof_filename' => 'required|file|image|mimes:jpeg,png,jpg|max:4096', // Allow up to 4 MB
+            'Cust_ID' => 'required|string',
+            'Mode_of_Payment' => 'required|string',
+            'Amount' => 'required|numeric|min:1',
+        ]);
+
+        try {
+            // Handle the file upload
+            $file = $request->file('Proof_filename');
+            if (!$file) {
+                return response()->json(['error' => 'No file uploaded'], 400);
+            }
+
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $file->storeAs('public/receipt', $filename);
+
+            // Insert the data into the database
+            DB::table('proof_of_payments')->insert([
+                'Tracking_Number' => $trackingNumber,
+                'Cust_ID' => $validated['Cust_ID'],
+                'Proof_filename' => $filename,
+                'Mode_of_Payment' => $validated['Mode_of_Payment'],
+                'Amount' => $validated['Amount'],
+                'Upload_datetime' => now(),
+            ]);
+
+            return response()->json(['message' => 'Payment uploaded successfully'], 200);
+        } catch (\Exception $e) {
+            Log::error('Payment upload error: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to upload payment: ' . $e->getMessage()], 500);
+        }
+    }
     //transactions
-    public function getTransId($id){
+    public function getTransId($id)
+    {
         $temp = DB::table('transaction_details')
                 ->where('TransacDet_ID',$id)
                 ->get();
                 
         return $temp;
     }
-    public function getDetails($id){
+    public function getDetails($id)
+    {
         $temp = DB::table('transactions')
             ->where('Transac_ID', $id)
+            ->get();
+
+        $mainTransactionStatus = DB::table('transaction_status')
+            ->where('Transac_ID', $id)
+            ->orderBy('TransacStatus_datetime', 'asc')
             ->get();
     
         $transactions = [];
     
         foreach($temp as $t){
             $transaction_details = DB::table('transaction_details')
-                ->join('laundry_categories', 'transaction_details.Categ_ID', '=', 'laundry_categories.Categ_ID')
+                ->LeftJoin('laundry_categories', 'transaction_details.Categ_ID', '=', 'laundry_categories.Categ_ID')
+                // ->LeftJoin('transaction_status', 'transaction_details.Transac_ID', '=', 'transaction_status.Transac_ID')
                 ->select(
                     'transaction_details.Transac_ID',
                     'transaction_details.TransacDet_ID',
                     'transaction_details.Price as price',
-                    'laundry_categories.Category'
+                    'transaction_details.created_at',
+                    'laundry_categories.Category',
+                    // 'transaction_status.Transac_status'
                 )
                 ->where('Transac_ID', $t->Transac_ID)
                 ->get();
     
             $transactions[] = [
                 'Tracking_number' => $t->Tracking_number,
-                'status' => $t->Transac_status,
+                'Transac_status' =>  $mainTransactionStatus,
+                // 'Transac_status' =>  $mainTransactionStatus->Transac_status,
+                // 'Transac_date' =>  $mainTransactionStatus->TransacStatus_datetime,
                 'total' => $transaction_details->sum('price'),
                 'details' => $transaction_details,
+                'transac' => $temp
             ];
         }
     
@@ -609,67 +623,60 @@ class CustomerController extends Controller
     {
         // Validate the request
         $request->validate([
-            'cid' => 'required|integer|exists:customers,Cust_ID',
-            'fname' => 'required|string|max:20',
-            'lname' => 'required|string|max:20',
-            'mname' => 'required|string|max:20',
-            'phonenum' => 'required|string',
-            'address' => 'required|string|max:50',
-            'email' => 'required|email|max:50',
-            'cust_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048' // Adjust as needed
+            'Cust_ID' => 'nullable|integer|exists:customers,Cust_ID',
+            'Cust_fname' => 'nullable|string|max:20',
+            'Cust_lname' => 'nullable|string|max:20',
+            'Cust_mname' => 'nullable|string|max:20',
+            'Cust_phoneno' => 'nullable|string',
+            'Cust_address' => 'nullable|string|max:50',
+            'Cust_email' => 'nullable|email|max:50',
+            'Cust_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
         ]);
 
         // Find the customer
-        $customer = Customers::find($request->cid);
-        if (!$customer) {
-            return response()->json(['message' => 'Customer not found'], 404);
-        }
+        $customer = Customers::findOrFail($request->Cust_ID);
 
         // Update customer information
-        $customer->Cust_fname = $request->fname;
-        $customer->Cust_lname = $request->lname;
-        $customer->Cust_mname = $request->mname;
-        $customer->Cust_phoneno = $request->phonenum;
-        $customer->Cust_address = $request->address;
-        $customer->Cust_email = $request->email;
+        $customer->Cust_fname = $request->Cust_fname;
+        $customer->Cust_lname = $request->Cust_lname;
+        $customer->Cust_mname = $request->Cust_mname;
+        $customer->Cust_phoneno = $request->Cust_phoneno;
+        $customer->Cust_address = $request->Cust_address;
+        $customer->Cust_email = $request->Cust_email;
 
-        // Handle the image upload if provided
-        if ($request->hasFile('cust_image')) {
-            // Delete the existing image if it exists
+        // Handle image update if provided
+        if ($request->hasFile('Cust_image')) {
+            // Delete the old image if it exists
             if ($customer->Cust_image) {
-                // Delete from storage
-                Storage::delete('public/profile/' . $customer->Cust_image);
-                
-                // If you are managing files directly, ensure to unlink as well (optional)
-                $htdocsImagePath = 'C:/xampp/htdocs/customer/profile/' . $customer->Cust_image;
-                if (file_exists($htdocsImagePath)) {
-                    unlink($htdocsImagePath);
+                $oldImagePath = public_path('images/' . $customer->Cust_image);
+                if (file_exists($oldImagePath)) {
+                    unlink($oldImagePath);
                 }
             }
 
-            // Store the new image
-            $imageName = time() . '_' . $customer->Cust_ID . '.' . $request->cust_image->extension();
-            
-            // Define storage path
-            $htdocsPath = 'C:/xampp/htdocs/customer/profile'; 
+            // Save the new image
+            $extension = $request->file('Cust_image')->extension();
+            $imageName = time() . '_' . $customer->Cust_ID . '.' . $extension;
 
-            // Ensure the directory exists
-            if (!file_exists($htdocsPath)) {
-                mkdir($htdocsPath, 0777, true);
-            }
+            $destinationPath = public_path('images');
+            $request->file('Cust_image')->move($destinationPath, $imageName);
 
-            // Move the uploaded file to the specified directory
-            $request->cust_image->move($htdocsPath, $imageName);
-
-            // Update customer image path
             $customer->Cust_image = $imageName;
         }
 
         // Save the updated customer
         $customer->save();
 
-        return response()->json(['message' => 'Customer updated successfully', 'customer' => $customer], 200);
+        // Generate the public URL for the new image if updated
+        $imageUrl = $customer->Cust_image ? asset('images/' . $customer->Cust_image) : null;
+
+        return response()->json([
+            'message' => 'Customer updated successfully',
+            'customer' => $customer,
+            'image_url' => $imageUrl
+        ], 200);
     }
+
     public function getcustomer($id){
         $temp = DB::table('customers')
                 ->where('Cust_ID',$id)
@@ -684,4 +691,29 @@ class CustomerController extends Controller
             'customerFirst' => $temp2
         ];
     } 
+
+
+    // signup
+    public function addcustomer(Request $request)
+    {
+        $request->validate([
+            'Cust_lname' => 'required|string|max:255',
+            'Cust_fname' => 'required|string|max:255',
+            'Cust_mname' => 'nullable|string|max:255',
+            'Cust_phoneno' => 'required|string|max:12',
+            'Cust_address' => 'required|string|max:255',
+            'Cust_email' => 'required|email|max:255|unique:customers',
+            'Cust_password' => 'required|confirmed|min:6',
+        ]);
+        
+        $data = $request->all();
+        $data['Cust_password'] = bcrypt($request->Cust_password);
+        
+        $customer = Customers::create($data);
+        
+        return response()->json([
+            'message' => 'Customer added successfully',
+            'customer' => $customer
+        ], 201);        
+    }
 }

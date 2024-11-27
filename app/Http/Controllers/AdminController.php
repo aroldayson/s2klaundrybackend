@@ -636,7 +636,7 @@ class AdminController extends Controller
         }
 
         $input = $request->all();
-
+            
 
         if ($request->filled('Cust_password')) {
             $input['Cust_password'] = bcrypt($request->Cust_password);

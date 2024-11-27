@@ -111,6 +111,10 @@ Route::get('/getcustomer/{id}',[CustomerController::class,'getcustomer']);
 Route::post('upload/{trackingNumber}', [CustomerController::class, 'updateProfileImage']);
 
 
+// signup
+Route::post('addcustomer', [CustomerController::class,'addcustomer']);
+
+
 
 
 
