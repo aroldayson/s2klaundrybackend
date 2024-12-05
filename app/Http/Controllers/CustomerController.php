@@ -114,34 +114,24 @@ class CustomerController extends Controller
         
         ->leftJoin('payments', 'transactions.Transac_ID', '=', 'payments.Transac_ID')
         ->leftJoin('transaction_details', 'transactions.Transac_ID', '=', 'transaction_details.Transac_ID')
+        ->leftJoin('transaction_status', 'transactions.Transac_ID', '=', 'transaction_status.Transac_ID')
         ->select(
             'transactions.Transac_ID',
             'transactions.Tracking_number as trans_tracking_number',
             'transactions.Cust_ID',
             'transactions.Tracking_number',
             'transactions.Transac_date',
-            'transactions.Transac_status',
-            'transactions.Received_datetime',
-            'transactions.Released_datetime',
             DB::raw('COALESCE(CAST(payments.amount AS CHAR), "No Payment") as payment_amount'),
             DB::raw('COALESCE(payments.Mode_of_Payment, "No Mode of Payment") as Mode_of_Payment'),
+            DB::raw('MAX(DISTINCT  transaction_status.Transac_status) as trans_stat'),
             // DB::raw('IF(transaction_details.Transac_ID IS NULL, "Cancelled", transactions.Transac_status) as service')
         )
         ->where('transactions.Cust_ID', $id)
-      
-        // Exclude rows where both payments.amount and payments.Mode_of_Payment are NULL
-        // ->where(function($query) {
-        //     $query->whereNotNull('payments.amount')
-        //           ->orWhereNotNull('payments.Mode_of_Payment');
-        // })
         ->groupBy(
             'transactions.Transac_ID',
             'transactions.Cust_ID',
             'transactions.Tracking_number',
             'transactions.Transac_date',
-            'transactions.Transac_status',
-            'transactions.Received_datetime',
-            'transactions.Released_datetime',
             'trans_tracking_number',
             'payment_amount',
             'Mode_of_Payment'
@@ -416,66 +406,12 @@ class CustomerController extends Controller
             ->get();
 
             TransactionStatus::where('Transac_ID', $id)
-                ->update(['Transac_status' => 'cancel']);
+                ->update(['Transac_status' => 'cancelled']);
 
         return response()->json(['transaction' => $transactions], 200);
     }
 
-    private function insertPayment($trackingNumber, $modeOfPayment, $amount, $custId)
-    {
-        return DB::table('payments')->insert([
-            'Cust_ID' => $request->Cust_ID,
-            'Transac_ID' => $request->trackingNumber,
-            'Amount' => $request->Amount,
-            'Mode_of_Payment' => $request->Mode_of_Payment,
-            'Datetime_of_Payment' => now(),
-        ]);
-        
-    }
-
-
-    public function insertProofOfPayment(Request $request, $paymentId)
-    {
-        try {
-            // Validate the incoming request to ensure the file is included
-            $validated = $request->validate([
-                'Proof_filename' => 'required|file|image|mimes:jpeg,png,jpg|max:4096',  // Validate file type and size
-                'Cust_ID' => 'required|string',
-                'Mode_of_Payment' => 'required|string',
-                'Amount' => 'required|numeric|min:1',
-            ]);
     
-            // Check if the file is present and is valid
-            if ($request->hasFile('Proof_filename') && $request->file('Proof_filename')->isValid()) {
-                $file = $request->file('Proof_filename');
-                
-                // Generate a unique filename based on the current timestamp and original name
-                $filename = time() . '_' . $file->getClientOriginalName();
-    
-                // Store the file in the 'public/receipt' directory
-                $file->storeAs('public/receipt', $filename);
-    
-                // Log the filename to ensure it's being uploaded
-                \Log::info('Uploaded file: ' . $filename);
-            } else {
-                throw new \Exception('File upload failed or no file uploaded');
-            }
-    
-            // Insert the record into the database with the filename
-            $proofOfPaymentId = DB::table('proof_of_payments')->insertGetId([
-                'Payment_ID' => $paymentId,
-                'Proof_filename' => $filename,  // Store the filename in the database
-                'Upload_datetime' => now(),
-            ]);
-    
-            return response()->json(['message' => 'Payment uploaded successfully', 'id' => $proofOfPaymentId], 200);
-        } catch (\Exception $e) {
-            // Log the error for debugging
-            \Log::error('Error inserting proof of payment: ' . $e->getMessage());
-            
-            return response()->json(['error' => 'Failed to insert proof of payment: ' . $e->getMessage()], 500);
-        }
-    }
 
 
     private function handleImageUpload(Request $request, $trackingNumber)
@@ -571,7 +507,7 @@ class CustomerController extends Controller
         $request->validate([
             'Proof_filename' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
             'Mode_of_Payment' => 'required|string',
-            'Amount' => 'required|numeric',
+            'Amount' => 'required|string',
             'Cust_ID' => 'required|string'
         ]);
 
@@ -584,30 +520,39 @@ class CustomerController extends Controller
                 ->first();
 
             if (!$proofPayment) {
-                $paymentId = $this->insertPayment($trackingNumber, $request->Mode_of_Payment, $request->Amount,  $request->Cust_ID);
-                $proofId = $this->insertProofOfPayment($paymentId);
+                $paymentId = $this->insertPayment($request, $trackingNumber);
+                $proofId = $this->insertProofOfPayment($request, $paymentId);
 
                 $proofPayment = DB::table('proof_of_payments')->where('Proof_ID', $proofId)->first();
             }
 
             if ($request->hasFile('Proof_filename')) {
                 if ($request->file('Proof_filename')->isValid()) {
-                    $filename = $request->file('Proof_filename')->store('profile_images', 'public');
+                    // Generate a unique filename for the uploaded file
+                    $imageName = time() . '_' . $request->file('Proof_filename')->getClientOriginalName();
+            
+                    // Define the destination path in the public directory
+                    $destinationPath = public_path('proofofpayment');
+            
+                    // Move the file to the specified destination
+                    $request->file('Proof_filename')->move($destinationPath, $imageName);
+            
+                    // Update the database record with the relative file path
                     DB::table('proof_of_payments')
                         ->where('Proof_ID', $proofPayment->Proof_ID)
-                        ->update(['Proof_filename' => $filename]);
-                    
+                        ->update(['Proof_filename' => 'proofofpayment/' . $imageName]);
+            
                     return response()->json([
                         'message' => 'Profile image updated successfully',
-                        'image_url' => asset('storage/' . $filename)
+                        'image_url' => asset('proofofpayment/' . $imageName)
                     ], 200);
                 } else {
                     return response()->json(['message' => 'Uploaded file is not valid.'], 400);
                 }
             }
+            
 
             return response()->json(['message' => 'No image file uploaded'], 400);
-
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
                 'message' => 'Transaction, payment, or proof of payment not found for the given tracking number.'
@@ -619,6 +564,47 @@ class CustomerController extends Controller
             ], 500);
         }
     }
+
+    private function insertPayment(Request $request, $trackingNumber)
+    {
+        return DB::table('payments')->insertGetId([
+            'Cust_ID' => $request->Cust_ID,
+            'Transac_ID' => $trackingNumber,
+            'Amount' => $request->Amount,
+            'Mode_of_Payment' => $request->Mode_of_Payment,
+            'Datetime_of_Payment' => now(),
+        ]);
+    }
+
+    public function insertProofOfPayment(Request $request, $paymentId)
+    {
+        try {
+            $validated = $request->validate([
+                'Proof_filename' => 'required|file|image|mimes:jpeg,png,jpg|max:4096',
+            ]);
+
+            if ($request->hasFile('Proof_filename') && $request->file('Proof_filename')->isValid()) {
+                $file = $request->file('Proof_filename');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $file->storeAs('public/receipt', $filename);
+
+                \Log::info('Uploaded file: ' . $filename);
+            } else {
+                throw new \Exception('File upload failed or no file uploaded');
+            }
+
+            return DB::table('proof_of_payments')->insertGetId([
+                'Payment_ID' => $paymentId,
+                'Proof_filename' => $filename,
+                'Upload_datetime' => now(),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error inserting proof of payment: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to insert proof of payment: ' . $e->getMessage()], 500);
+        }
+    }
+
+
     public function updateCus(Request $request)
     {
         // Validate the request

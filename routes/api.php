@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\StaffController;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -67,12 +68,16 @@ Route::get('/Transadisplay',[AdminController::class, 'Transadisplay']);
 // Route::get('/printTransac',[AdminController::class, 'printTransac']);
 Route::get('/printTransac/{id}',[AdminController::class, 'printTransac']);
 Route::get('/approveremit/{id}',[AdminController::class, 'approveremit']);
+Route::get('/DisplayAllTransaction/{id}',[AdminController::class, 'DisplayAllTransaction']);
+Route::get('/DisplayAllExpenses/{id}',[AdminController::class, 'DisplayAllExpenses']);
 
 
 // admin- report
 Route::get('/displayexpenses',[AdminController::class, 'displayexpenses']);
 Route::get('/displayincome',[AdminController::class, 'displayincome']);
 Route::get('/remittanceapproved',[AdminController::class, 'remittanceapproved']);
+Route::get('/hisdisplayincome/{id}',[AdminController::class, 'hisdisplayincome']);
+Route::get('/hisdisplayexpenses/{id}',[AdminController::class, 'hisdisplayexpenses']);
 
 // admin- account 
 Route::get('/admin/{id}',[AdminController::class, 'findstaff']);
@@ -111,8 +116,48 @@ Route::get('/getcustomer/{id}',[CustomerController::class,'getcustomer']);
 Route::post('upload/{trackingNumber}', [CustomerController::class, 'updateProfileImage']);
 
 
-// signup
+//customer - signup
 Route::post('addcustomer', [CustomerController::class,'addcustomer']);
+
+
+
+
+//staff - login
+// Route::post('CustRegister', [StaffController::class, 'CustRegister']);
+Route::get('user', function (Request $request) {
+    return response()->json($request->user());
+});
+Route::post('/CustLogin', [StaffController::class, 'CustLogin']);
+Route::post('AdminLogin', [StaffController::class, 'AdminLogin']);
+
+Route::post('Logout', [StaffController::class, 'Logout'])->middleware('auth:sanctum');
+
+Route::get('Transaction', [StaffController::class, 'getTransaction']); // Home - Receivings
+Route::get('TransactionRel', [StaffController::class, 'getTrasactionsRel']); //Home - Receivings
+
+Route::get('getTransCust/{id}', [StaffController::class, 'showTransCust']);
+Route::post('updateStatus/{id}', [StaffController::class, 'updateStatus']); //Home - Receivings & Releasings - modal
+Route::get('getLaundryDetails/{id}', [StaffController::class, 'showLaundryDetails']);
+Route::get('getTransactionsRec', [StaffController::class, 'getTransactionsRec']);
+
+Route::get('totalPrice/{id}', [StaffController::class, 'totalPrice']);
+Route::get('getAddService/{id}', [StaffController::class, 'getAddService']);
+Route::post('saveLaundryDetails', [StaffController::class, 'saveLaundryDetails']);
+Route::post('saveServiceData', [StaffController::class, 'saveServiceData']);
+Route::get('getCash/{id}', [StaffController::class, 'getCash']);
+Route::post('addRem', [StaffController::class, 'addRem']);
+Route::post('submitLaundryTrans/{id}', [StaffController::class, 'submitLaundryTrans']);
+Route::post('updateStatus/{id}', [StaffController::class, 'updateStatus']);
+Route::get('getForRel/{id}', [StaffController::class, 'getForRel']);
+Route::get('getAddServRel/{id}', [StaffController::class, 'getAddServRel']);
+Route::get('totalPriceLaundry/{id}', [StaffController::class, 'totalPriceLaundry']);
+Route::get('totalPriceService/{id}', [StaffController::class, 'totalPriceService']);
+Route::get('paymentStatus/{id}', [StaffController::class, 'paymentStatus']);
+Route::post('doneTransac/{id}', [StaffController::class, 'doneTransac']);
+
+Route::get('getCustomer', [StaffController::class, 'getCustomer']);
+Route::get('getCustomerData/{id}', [StaffController::class, 'getCustomerData']);
+Route::get('getCustTransacHistory/{id}', [StaffController::class, 'getCustTransacHistory']);
 
 
 
