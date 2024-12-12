@@ -18,6 +18,7 @@ use App\Models\TransactionDetails;
 use App\Models\Transactions;
 use App\Models\Cashdetails;
 use App\Models\Additional_services;
+use App\Models\shipping_services;
 // use App\Http\Requests\StoreAdminRequest;
 // use App\Http\Requests\UpdateAdminRequest;
 
@@ -118,18 +119,31 @@ class AdminController extends Controller
     }
     public function addstaff(Request $request)
     {
+        // $request->validate([
+        //     'Admin_lname' => 'required|string|max:255',
+        //     'Admin_fname' => 'required|string|max:255',
+        //     'Admin_mname' => 'nullable|string|max:255',
+        //     'Admin_image' => 'string',
+        //     'Birthdate' => 'nullable|date',
+        //     'Phone_no' => 'required|string|max:15',
+        //     'Address' => 'required|string|max:255',
+        //     'Role' => 'nullable|string|max:255',
+        //     'Email' => 'required|email|max:255|unique:admins',
+        //     'Password' => 'required|confirmed|min:6', 
+        // ]);
         $request->validate([
-            'Admin_lname' => 'required|string|max:255',
+            'Admin_lname' => 'required|string|max:255|unique:admins,Admin_fname',
             'Admin_fname' => 'required|string|max:255',
             'Admin_mname' => 'nullable|string|max:255',
-            'Admin_image' => 'string',
+            'Admin_image' => 'nullable|string|unique:admins,Admin_image',
             'Birthdate' => 'nullable|date',
-            'Phone_no' => 'required|string|max:15',
+            'Phone_no' => 'required|string|max:15|unique:admins,Phone_no',
             'Address' => 'required|string|max:255',
             'Role' => 'nullable|string|max:255',
-            'Email' => 'required|email|max:255|unique:admins',
-            'Password' => 'required|confirmed|min:6', 
+            'Email' => 'required|email|max:255|unique:admins,Email',
+            'Password' => 'required|confirmed|min:6', // Password is typically hashed, so it shouldn't have a unique rule.
         ]);
+        
 
         $data = $request->all();
         $data['Password'] = bcrypt($request->Password);
@@ -230,10 +244,21 @@ class AdminController extends Controller
         $request->validate([
             'Admin_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048'
         ]);
-
+    
         $admin = Admins::findOrFail($id);
-
+    
         if ($request->hasFile('Admin_image')) {
+            // Get the original file name
+            $imageName = $request->file('Admin_image')->getClientOriginalName();
+    
+            // Check if the same file name exists in the database
+            $existingAdmin = Admins::where('Admin_image', $imageName)->first();
+            if ($existingAdmin) {
+                return response()->json([
+                    'message' => 'Duplicate image name detected. Upload a file with a different name.'
+                ], 400);
+            }
+    
             // Delete the old image if it exists
             if ($admin->Admin_image) {
                 $oldImagePath = public_path('images/' . $admin->Admin_image);
@@ -241,30 +266,72 @@ class AdminController extends Controller
                     unlink($oldImagePath);
                 }
             }
-
-            // Get the file extension and generate a unique name for the image
-            $extension = $request->file('Admin_image')->extension();
-            $imageName = time() . '_' . $admin->Admin_ID . '.' . $extension;
-
+    
             // Move the file to the 'public/images' directory
             $destinationPath = public_path('images');
             $request->file('Admin_image')->move($destinationPath, $imageName);
-
+    
             // Update the database with the new image name
             $admin->Admin_image = $imageName;
             $admin->save();
-
+    
             // Generate the public URL for the new image
             $imageUrl = asset('images/' . $imageName);
-
+    
             return response()->json([
                 'message' => 'Profile image updated successfully',
                 'image_url' => $imageUrl
             ], 200);
         }
-
+    
         return response()->json(['message' => 'No image file uploaded'], 400);
     }
+    
+
+    // {
+    //     $request->validate([
+    //         'Admin_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048'
+    //     ]);
+
+    //     $admin = Admins::findOrFail($id);
+
+    //     if ($request->hasFile('Admin_image')) {
+    //         // Delete the old image if it exists
+    //         if ($admin->Admin_image) {
+    //             $oldImagePath = public_path('images/' . $admin->Admin_image);
+    //             if (file_exists($oldImagePath)) {
+    //                 unlink($oldImagePath);
+    //             }
+    //         }
+
+    //         // Get the original file name without the extension
+    //         $imageName = pathinfo($request->file('Admin_image')->getClientOriginalName(), PATHINFO_FILENAME);
+    //         $imageExtension = $request->file('Admin_image')->getClientOriginalExtension();
+
+    //         // Append a timestamp for uniqueness
+    //         $uniqueImageName = $imageName .'.' . $imageExtension;
+
+    //         // Move the file to the 'public/images' directory
+    //         $destinationPath = public_path('images');
+    //         $request->file('Admin_image')->move($destinationPath, $uniqueImageName);
+
+    //         // Update the database with the new image name
+    //         $admin->Admin_image = $uniqueImageName;
+    //         $admin->save();
+
+    //         // Generate the public URL for the new image
+    //         $imageUrl = asset('images/' . $uniqueImageName);
+
+    //         return response()->json([
+    //             'message' => 'Profile image updated successfully',
+    //             'image_url' => $imageUrl
+    //         ], 200);
+    //     }
+
+    //     return response()->json(['message' => 'No image file uploaded'], 400);
+    // }
+    
+
 
 
 
@@ -277,11 +344,15 @@ class AdminController extends Controller
     public function addprice(Request $request)
     {
         $request->validate([
-            'Category' => 'required|string',
+            'Category' => 'required|string|unique:laundry_categories,Category',
             'Price' => 'required|numeric',
             'Minimum_weight' => 'required|numeric'
         ]);
-
+    
+        // Simulate an existing category to trigger a unique validation error
+        // $existingCategory = 'ExistingCategory'; // Replace with a real category name from your database
+        // $request->merge(['Category' => $existingCategory]); // Override the input to simulate the error
+    
         DB::table('laundry_categories')->insert([
             'Category' => $request->Category,
             'Price' => $request->Price,
@@ -289,14 +360,15 @@ class AdminController extends Controller
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-
+    
         $staffList = DB::table('laundry_categories')->orderBy('created_at', 'desc')->get();
-
+    
         return response()->json([
             'message' => 'Success',
             'data' => $staffList,
         ], 201);
     }
+    
     public function deletecateg(Request $request, $id)
     {
         $pricecateg = Laundrycategories::find($id);
@@ -309,12 +381,26 @@ class AdminController extends Controller
     }
     public function updateprice(Request $request, $id)
     {
+        // Find the record
         $pricecateg = Laundrycategories::find($id);
-        if(is_null($pricecateg)){
-            return response()->json(['message' => 'Laundrycategorys not Found'], 404);
+        if (is_null($pricecateg)) {
+            return response()->json(['message' => 'Laundrycategory not Found'], 404);
         }
-        $pricecateg->update($request->all());
-        return response($pricecateg, 200);
+
+        // Validate the request data, ensuring Category is unique excluding the current record
+        $price = $request->validate([
+            'Category' => 'required|string',
+            'Price' => 'required|numeric',
+            'Minimum_weight' => 'required|numeric'
+        ]);
+
+        // Update the record
+        $pricecateg->update($price);
+
+        return response()->json([
+            'message' => 'Success',
+            'data' => $pricecateg
+        ], 200);
     }
     public function findprice($id)
     {   
@@ -325,6 +411,41 @@ class AdminController extends Controller
         }
 
         return response()->json($pricecateg, 200);
+    }
+    public function pricedisplayDestination()
+    {
+        // return response()->json(Laundrycategorys::all(), 200);
+        return response()->json(shipping_services::orderBy('ShipServ_ID', 'desc')->get(), 200);
+    }
+    public function addpricedestination(Request $request)
+    {
+        $request->validate([
+            'City_Address' => 'required|string|unique:shipping_service_price,City_Address',
+            'ShipServ_price' => 'required|numeric',
+        ]);
+    
+    
+        DB::table('shipping_service_price')->insert([
+            'City_Address' => $request->City_Address,
+            'ShipServ_price' => $request->ShipServ_price,
+        ]);
+    
+        $List = DB::table('shipping_service_price')->orderBy('ShipServ_ID', 'desc')->get();
+    
+        return response()->json([
+            'message' => 'Success',
+            'data' => $List,
+        ], 201);
+    }
+    public function deletedestination(Request $request, $id)
+    {
+        $pricecateg = shipping_services::find($id);
+        if(is_null($pricecateg)){
+            return response()->json(['message' => 'Employee not Found'], 404);
+        }
+        $pricecateg->delete();
+        return response()->json(null,204);
+
     }
 
      // DASHBOARD
@@ -463,7 +584,7 @@ class AdminController extends Controller
          DB::table('cash')->insert([
              'Admin_ID' => $request->Admin_ID,
              'Remittance' => $request->Remittance,
-             'Fund_status' => 'Pending',
+             'Fund_status' => 'Approve',
              'Datetime_Remittance' => now(),
          ]);
  
@@ -509,6 +630,46 @@ class AdminController extends Controller
             'total_count' => $totalTrackingCount
         ], 200);
     }
+    public function dashdisplaysmonth()
+    {
+        //  $date = now()->toDateString();  
+ 
+         $payments = Payments::all();
+         $totalAmount = $payments->sum('Amount');
+ 
+         $totals = [
+             'gcash' => 0,
+             'cash' => 0,
+             'bpi' => 0,
+         ];
+ 
+         $paymentsByMethod = [
+             'gcash' => [],
+             'cash' => [],
+             'bpi' => [],
+         ];
+ 
+         foreach ($payments as $payment) {
+             if (strtolower($payment->Mode_of_Payment) === 'gcash') {
+                 $totals['gcash'] += $payment->Amount;
+                 $paymentsByMethod['gcash'][] = $payment;
+             } elseif (strtolower($payment->Mode_of_Payment) === 'cash') {
+                 $totals['cash'] += $payment->Amount;
+                 $paymentsByMethod['cash'][] = $payment;
+             } elseif (strtolower($payment->Mode_of_Payment) === 'bpi') {
+                 $totals['bpi'] += $payment->Amount;
+                 $paymentsByMethod['bpi'][] = $payment;
+             }
+         }
+ 
+         return response()->json([
+             'payments' => $paymentsByMethod,
+             'totals' => $totals,
+             'total_amount' => $totalAmount
+         ], 200);
+     }
+
+
 
     // CUSTOMERS
     public function customerdisplay(){
@@ -548,6 +709,27 @@ class AdminController extends Controller
                                                     FROM transaction_status
                                                     WHERE Transac_ID = transactions.Transac_ID)
                                 LIMIT 1) AS latest_transac_status"),
+                            DB::raw("(SELECT TransacStatus_datetime
+                                FROM transaction_status AS ts
+                                WHERE ts.Transac_ID = transactions.Transac_ID
+                                AND ts.TransacStatus_datetime = (
+                                    SELECT MAX(TransacStatus_datetime)
+                                    FROM transaction_status
+                                    WHERE Transac_ID = transactions.Transac_ID
+                                    AND TransacStatus_name = 'completed'
+                                )
+                                LIMIT 1) AS latest_transac_datetime"),  
+                            DB::raw("(SELECT CONCAT(a.Admin_fname, ' ', a.Admin_mname, ' ', a.Admin_lname) AS admin_name
+                                FROM transaction_status AS ts
+                                LEFT JOIN admins AS a ON a.Admin_ID = ts.Admin_ID
+                                WHERE ts.Transac_ID = transactions.Transac_ID
+                                AND ts.TransacStatus_datetime = (
+                                    SELECT MAX(TransacStatus_datetime)
+                                    FROM transaction_status
+                                    WHERE Transac_ID = transactions.Transac_ID
+                                )
+                                LIMIT 1) AS latest_admin_name"),
+                                  
                             // 'transaction_status.TransacStatus_datetime',
                             // 'transactions.Received_datetime',
                             // 'transactions.Released_datetime',
@@ -558,7 +740,7 @@ class AdminController extends Controller
                             'admins.Admin_mname',
                             'admins.Admin_lname',
                             DB::raw('GROUP_CONCAT(CONCAT(transaction_details.Qty, "kgs ", laundry_categories.Category) SEPARATOR ", ") as Category'),
-                            DB::raw('SUM(DISTINCT transaction_details.Price) as totalprice')
+                            DB::raw('SUM(DISTINCT transaction_details.Price) + SUM(DISTINCT additional_services.AddService_price) as totalprice')
                             // DB::raw('SUM(additional_services.AddService_price) as totalprice')    
                     )
                     ->groupBy(
@@ -571,6 +753,8 @@ class AdminController extends Controller
                             // 'transactions.Received_datetime',
                             // 'transactions.Released_datetime',
                             DB::raw('latest_transac_status'),
+                            DB::raw('latest_transac_datetime'),
+                            DB::raw('latest_admin_name'),
                             'customers.Cust_ID', 
                             'customers.Cust_fname', 
                             'customers.Cust_lname', 
@@ -683,11 +867,10 @@ class AdminController extends Controller
 
         if ($request->filled('Cust_password')) {
             $input['Cust_password'] = bcrypt($request->Cust_password);
-            // $input['Cust_OldPassword'] = $staff->Cust_password;
+            $input['Cust_OldPassword'] = $customer->Cust_password;
+        } else {
+            unset($input['Cust_password']); 
         }
-        // else {
-        //     unset($input['Cust_password']); 
-        // }
 
         $customer->update($input);
 
@@ -849,19 +1032,137 @@ class AdminController extends Controller
             'totalsprice' => $totalprice,
         ], 200);
     }
+    public function TransactiondisplayAll()
+    {
+        $date = now()->toDateString(); // Automatically use today's date
 
+        $price = TransactionDetails::all();
+        $totalprice = $price->sum('Price');
+
+        $data = Transactions::join('customers', 'transactions.Cust_ID', '=', 'customers.Cust_ID')
+            ->leftJoin('transaction_details', 'transactions.Transac_ID', '=', 'transaction_details.Transac_ID')
+            ->leftJoin('transaction_status', 'transactions.Transac_ID', '=', 'transaction_status.Transac_ID')
+            ->leftJoin('admins', 'admins.Admin_ID', '=', 'transactions.Admin_ID')
+            ->leftJoin('laundry_categories', 'transaction_details.Categ_ID', '=', 'laundry_categories.Categ_ID')
+            ->leftJoin('payments', 'transactions.Transac_ID', '=', 'payments.Transac_ID')
+            ->whereDate('transactions.Transac_datetime', $date) // Filter by today's date
+            ->select(
+                'transactions.Transac_ID',
+                'transactions.Tracking_number',
+                'transactions.Transac_datetime',
+                'payments.Amount',
+                DB::raw("(SELECT TransacStatus_name
+                    FROM transaction_status
+                    WHERE transaction_status.Transac_ID = transactions.Transac_ID
+                    AND transaction_status.TransacStatus_datetime = (
+                        SELECT MAX(transaction_status.TransacStatus_datetime)
+                        FROM transaction_status
+                        WHERE transaction_status.Transac_ID = transactions.Transac_ID
+                    )
+                    LIMIT 1) AS latest_transac_status"),
+                'customers.Cust_fname', 
+                'customers.Cust_lname', 
+                'admins.Admin_fname',
+                'admins.Admin_mname',
+                'admins.Admin_lname',
+                DB::raw('GROUP_CONCAT(CONCAT(transaction_details.Qty, "kgs ",laundry_categories.Category) SEPARATOR ", ") as Category'),
+                DB::raw('GROUP_CONCAT(DISTINCT CONCAT(customers.Cust_fname, " ", COALESCE(customers.Cust_mname, ""), " ", customers.Cust_lname) SEPARATOR ", ") as Customers'),
+                // DB::raw('SUM(DISTINCT transaction_details.Price) as totalprice')
+                DB::raw('SUM(CASE WHEN payments.Transac_ID IS NULL THEN transaction_details.Price ELSE 0 END) AS totalprice')
+            )
+            ->groupBy(
+                'transactions.Transac_ID',
+                'transactions.Tracking_number',
+                'transactions.Transac_datetime',
+                'payments.Amount',
+                DB::raw('latest_transac_status'),
+                // DB::raw('totalprice'),
+                'customers.Cust_fname', 
+                'customers.Cust_lname', 
+                'admins.Admin_fname',
+                'admins.Admin_mname',
+                'admins.Admin_lname'
+            )
+            ->get();
+
+        return response()->json([
+            'data' => $data,
+            'totalsprice' => $totalprice,
+        ], 200);
+    }
+    public function TransactiondisplayAlls()
+    {
+        // $date = now()->toDateString(); // Automatically use today's date
+
+        $price = TransactionDetails::all();
+        $totalprice = $price->sum('Price');
+
+        $data = Transactions::join('customers', 'transactions.Cust_ID', '=', 'customers.Cust_ID')
+            ->leftJoin('transaction_details', 'transactions.Transac_ID', '=', 'transaction_details.Transac_ID')
+            ->leftJoin('transaction_status', 'transactions.Transac_ID', '=', 'transaction_status.Transac_ID')
+            ->leftJoin('admins', 'admins.Admin_ID', '=', 'transactions.Admin_ID')
+            ->leftJoin('laundry_categories', 'transaction_details.Categ_ID', '=', 'laundry_categories.Categ_ID')
+            ->leftJoin('payments', 'transactions.Transac_ID', '=', 'payments.Transac_ID')
+            // ->whereDate('transactions.Transac_datetime', $date) // Filter by today's date
+            ->select(
+                'transactions.Transac_ID',
+                'transactions.Tracking_number',
+                'transactions.Transac_datetime',
+                'payments.Amount',
+                DB::raw("(SELECT TransacStatus_name
+                    FROM transaction_status
+                    WHERE transaction_status.Transac_ID = transactions.Transac_ID
+                    AND transaction_status.TransacStatus_datetime = (
+                        SELECT MAX(transaction_status.TransacStatus_datetime)
+                        FROM transaction_status
+                        WHERE transaction_status.Transac_ID = transactions.Transac_ID
+                    )
+                    LIMIT 1) AS latest_transac_status"),
+                'customers.Cust_fname', 
+                'customers.Cust_lname', 
+                'admins.Admin_fname',
+                'admins.Admin_mname',
+                'admins.Admin_lname',
+                DB::raw('GROUP_CONCAT(CONCAT(transaction_details.Qty, "kgs ",laundry_categories.Category) SEPARATOR ", ") as Category'),
+                DB::raw('GROUP_CONCAT(DISTINCT CONCAT(customers.Cust_fname, " ", COALESCE(customers.Cust_mname, ""), " ", customers.Cust_lname) SEPARATOR ", ") as Customers'),
+                // DB::raw('SUM(DISTINCT transaction_details.Price) as totalprice')
+                DB::raw('SUM(CASE WHEN payments.Transac_ID IS NULL THEN transaction_details.Price ELSE 0 END) AS totalprice')
+            )
+            ->groupBy(
+                'transactions.Transac_ID',
+                'transactions.Tracking_number',
+                'transactions.Transac_datetime',
+                'payments.Amount',
+                DB::raw('latest_transac_status'),
+                'customers.Cust_fname', 
+                'customers.Cust_lname', 
+                'admins.Admin_fname',
+                'admins.Admin_mname',
+                'admins.Admin_lname'
+            )
+            ->get();
+
+        return response()->json([
+            'data' => $data,
+            'totalsprice' => $totalprice,
+        ], 200);
+    }
     public function remittanceapproved(Request $request)
     {
         $results = DB::table('cash')
             ->leftJoin('expenses', function ($join) {
                 $join->on(DB::raw('YEAR(cash.Datetime_Remittance)'), '=', DB::raw('YEAR(expenses.Datetime_taken)'))
                     ->on(DB::raw('MONTH(cash.Datetime_Remittance)'), '=', DB::raw('MONTH(expenses.Datetime_taken)'))
-                    ->on(DB::raw('DAY(cash.Datetime_Remittance)'), '=', DB::raw('DAY(expenses.Datetime_taken)'));
+                    ->on(DB::raw('DAY(cash.Datetime_Remittance)'), '=', DB::raw('DAY(expenses.Datetime_taken)'))
+                    ->on('cash.Staff_ID', '=', 'expenses.Admin_ID')
+                    ->orOn('cash.Admin_ID', '=', 'expenses.Admin_ID');
             })
             ->leftJoin('payments', function ($join) {
                 $join->on(DB::raw('YEAR(cash.Datetime_Remittance)'), '=', DB::raw('YEAR(payments.Datetime_of_Payment)'))
                     ->on(DB::raw('MONTH(cash.Datetime_Remittance)'), '=', DB::raw('MONTH(payments.Datetime_of_Payment)'))
-                    ->on(DB::raw('DAY(cash.Datetime_Remittance)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'));
+                    ->on(DB::raw('DAY(cash.Datetime_Remittance)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'))
+                    ->on('cash.Staff_ID', '=', 'payments.Admin_ID')
+                    ->orOn('cash.Admin_ID', '=', 'payments.Admin_ID');
             })
             ->join('admins', function ($join) {
                 $join->on('cash.Staff_ID', '=', 'admins.Admin_ID')
@@ -876,17 +1177,16 @@ class AdminController extends Controller
                 DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_fname, " ", admins.Admin_mname, " ", admins.Admin_lname SEPARATOR ", ") as name'),
                 DB::raw('COALESCE(SUM(DISTINCT cash.Remittance), 0) AS remitAmount'),
                 DB::raw('COALESCE(SUM(DISTINCT cash.Initial_amount), 0) AS initialAmount'),
-                DB::raw('COALESCE(SUM(DISTINCT expenses.Amount), 0) AS ExpensesAmount'), // Return 0 if no expenses found
+                DB::raw('COALESCE(SUM(DISTINCT expenses.Amount), 0) AS ExpensesAmount'),
                 DB::raw('COALESCE(SUM(DISTINCT payments.Amount), 0) AS paymentAmount'),
-
                 DB::raw('MONTH(cash.Datetime_Remittance) AS remitMonth'),
                 DB::raw('DAY(cash.Datetime_Remittance) AS remitDay'),
                 DB::raw('YEAR(cash.Datetime_Remittance) AS remitYear'),
-
-                DB::raw('MONTH(payments.Datetime_of_Payment) AS paymentMonth'),
-                DB::raw('DAY(payments.Datetime_of_Payment) AS paymentDay'),
-                DB::raw('YEAR(payments.Datetime_of_Payment) AS paymentYear')
+                DB::raw('COALESCE(DATE(cash.Datetime_Remittance)) as transactionDate')
             )
+            // Filter records to include only those with a valid Remittance amount and date
+            ->whereNotNull('cash.Datetime_Remittance')
+            ->where('cash.Remittance', '>', 0)
             ->groupBy(
                 'cash.Admin_ID',
                 'cash.Cash_ID',
@@ -896,47 +1196,42 @@ class AdminController extends Controller
                 'remitMonth',
                 'remitDay',
                 'remitYear',
-                'paymentMonth',
-                'paymentDay',
-                'paymentYear'
+                DB::raw('transactionDate')
             )
             ->orderBy('Cash_ID', 'desc')
             ->get();
 
-
         // Calculate additional fields based on correct field names
         foreach ($results as &$data) {
             $data->netIncome = $data->remitAmount - $data->initialAmount - $data->ExpensesAmount;
-            
-            // Total transactions and collections
             $data->totaltransac = $data->paymentAmount + $data->initialAmount;
-            $data->totalcollec = $data->totaltransac - $data->ExpensesAmount;
-            
-            // Total profit calculation with conditions
+            $data->totalcollec = $data->totaltransac + $data->ExpensesAmount;
+
             if ($data->remitAmount > 0 && $data->paymentAmount > 0) {
                 $data->totalprofit = $data->remitAmount - $data->totalcollec;
             } else {
-                $data->totalprofit = 0; // Set to zero if there are no remittances or payments
+                $data->totalprofit = 0;
             }
-        }        
-        
+        }
+
         return response()->json($results, 200);
-
-
     }
-
     public function printTransac(Request $request,$id)
     {
         $results = DB::table('cash')
             ->leftJoin('expenses', function ($join) {
                 $join->on(DB::raw('YEAR(cash.Datetime_Remittance)'), '=', DB::raw('YEAR(expenses.Datetime_taken)'))
                     ->on(DB::raw('MONTH(cash.Datetime_Remittance)'), '=', DB::raw('MONTH(expenses.Datetime_taken)'))
-                    ->on(DB::raw('DAY(cash.Datetime_Remittance)'), '=', DB::raw('DAY(expenses.Datetime_taken)'));
+                    ->on(DB::raw('DAY(cash.Datetime_Remittance)'), '=', DB::raw('DAY(expenses.Datetime_taken)'))
+                    ->on('cash.Staff_ID', '=', 'expenses.Admin_ID')
+                    ->orOn('cash.Admin_ID', '=', 'expenses.Admin_ID');
             })
             ->leftJoin('payments', function ($join) {
                 $join->on(DB::raw('YEAR(cash.Datetime_Remittance)'), '=', DB::raw('YEAR(payments.Datetime_of_Payment)'))
                     ->on(DB::raw('MONTH(cash.Datetime_Remittance)'), '=', DB::raw('MONTH(payments.Datetime_of_Payment)'))
-                    ->on(DB::raw('DAY(cash.Datetime_Remittance)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'));
+                    ->on(DB::raw('DAY(cash.Datetime_Remittance)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'))
+                    ->on('cash.Staff_ID', '=', 'payments.Admin_ID')
+                    ->orOn('cash.Admin_ID', '=', 'payments.Admin_ID');
             })
             ->join('admins', function ($join) {
                 $join->on('cash.Staff_ID', '=', 'admins.Admin_ID')
@@ -998,7 +1293,6 @@ class AdminController extends Controller
         
         return response()->json($results, 200);
     }
-
     public function approveremit($id){
         $approve = Cashdetails::where('Cash_ID', $id)
         ->update(['Fund_status' => 'Approve']);
@@ -1013,10 +1307,12 @@ class AdminController extends Controller
             ->leftJoin('admins', 'admins.Admin_ID', '=', 'transactions.Admin_ID')
             ->leftJoin('laundry_categories', 'transaction_details.Categ_ID', '=', 'laundry_categories.Categ_ID')
             ->whereDate('transactions.Transac_datetime', $id) // Filter by today's date
+            // ->selectRaw('DATE(transactions.Transac_datetime) as transaction_date')
             ->select(
                 'transactions.Transac_ID',
                 'transactions.Tracking_number',
-                'transactions.Transac_datetime',
+                // 'transactions.Transac_datetime',
+                DB::raw('DATE(transactions.Transac_datetime) as transaction_date'),
                 DB::raw("(SELECT TransacStatus_name
                     FROM transaction_status
                     WHERE transaction_status.Transac_ID = transactions.Transac_ID
@@ -1031,15 +1327,16 @@ class AdminController extends Controller
                 'admins.Admin_fname',
                 'admins.Admin_mname',
                 'admins.Admin_lname',
-                DB::raw('GROUP_CONCAT(CONCAT(customers.Cust_fname, " ",customers.Cust_lname) SEPARATOR ", ") as custname'),
+                DB::raw('GROUP_CONCAT(DISTINCT CONCAT(customers.Cust_fname, " ",customers.Cust_lname) SEPARATOR ", ") as custname'),
                 DB::raw('GROUP_CONCAT(DISTINCT CONCAT(transaction_details.Qty, "kgs ", laundry_categories.Category) SEPARATOR ", ") as Category'),
                 DB::raw('SUM(DISTINCT transaction_details.Price) as totalprice')
             )
             ->groupBy(
                 'transactions.Transac_ID',
                 'transactions.Tracking_number',
-                'transactions.Transac_datetime',
+                // 'transactions.Transac_datetime',
                 DB::raw('latest_transac_status'),
+                DB::raw('transaction_date'),
                 'customers.Cust_fname', 
                 'customers.Cust_lname', 
                 'admins.Admin_fname',
@@ -1062,9 +1359,6 @@ class AdminController extends Controller
             'data' => $data
         ], 200);
     }
-
-    
-
 
     // REPORT
     public function displayexpenses()
@@ -1095,60 +1389,241 @@ class AdminController extends Controller
             'totalAmount' => $totalAmount,
         ], 200);
     }
-    
     public function displayincome(Request $request)
     {
-        $allTransactions = DB::table('expenses')
-            // ->join('payments', function($join) {
-            //     $join->on('expenses.Datetime_taken', '=', 'payments.Datetime_of_Payment');
-            // })
-            ->join('payments', function($join) {
+        $allTransactions = DB::table('payments')
+            ->LeftJoin('expenses', function ($join) {
                 $join->on(DB::raw('YEAR(expenses.Datetime_taken)'), '=', DB::raw('YEAR(payments.Datetime_of_Payment)'))
-                     ->on(DB::raw('MONTH(expenses.Datetime_taken)'), '=', DB::raw('MONTH(payments.Datetime_of_Payment)'))
-                     ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'));
+                    ->on(DB::raw('MONTH(expenses.Datetime_taken)'), '=', DB::raw('MONTH(payments.Datetime_of_Payment)'))
+                    ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'))
+                    ->on('expenses.Admin_ID', '=', 'payments.Admin_ID');
             })
-            // ->join('cash', function($join) {
-            //     $join->on('expenses.Datetime_taken', '=', 'cash.Datetime_Remittance');
-            // })
-            ->join('cash', function($join) {
+            ->leftJoin('cash', function ($join) {
                 $join->on(DB::raw('YEAR(expenses.Datetime_taken)'), '=', DB::raw('YEAR(cash.Datetime_Remittance)'))
-                     ->on(DB::raw('MONTH(expenses.Datetime_taken)'), '=', DB::raw('MONTH(cash.Datetime_Remittance)'))
-                     ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(cash.Datetime_Remittance)'));
+                    ->on(DB::raw('MONTH(expenses.Datetime_taken)'), '=', DB::raw('MONTH(cash.Datetime_Remittance)'))
+                    ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(cash.Datetime_Remittance)'))
+                    ->on('cash.Staff_ID', '=', 'expenses.Admin_ID')
+                    ->orOn('cash.Admin_ID', '=', 'expenses.Admin_ID');
             })
-            ->join('admins', function($join) {
-                $join->on('cash.Staff_ID', '=', 'admins.Admin_ID');
+            ->leftJoin('admins', function ($join) {
+                $join->on('cash.Staff_ID', '=', 'admins.Admin_ID')
+                    ->orOn('cash.Admin_ID', '=', 'admins.Admin_ID');
             })
-            // ->leftJoin('transactions', 'payments.Transac_ID', '=', 'transactions.Transac_ID')
             ->select(
-                // 'cash.Staff_ID',
-                DB::raw('COALESCE(DATE(payments.Datetime_of_Payment), DATE(expenses.Datetime_taken)) as transactionDate'), 
-                DB::raw('SUM(DISTINCT payments.Amount) as totalPayments'), 
-                DB::raw('SUM(DISTINCT expenses.Amount) as totalExpenses'), 
+                DB::raw('DATE(COALESCE(payments.Datetime_of_Payment, expenses.Datetime_taken)) as transactionDate'),
+                DB::raw('SUM(DISTINCT payments.Amount) as totalPayments'),
+                DB::raw('SUM(DISTINCT expenses.Amount) as totalExpenses'),
                 DB::raw('SUM(DISTINCT payments.Amount) - SUM(DISTINCT expenses.Amount) as total'),
-                DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_lname SEPARATOR ", ") as adminNames'),
-                DB::raw('GROUP_CONCAT(DISTINCT cash.Staff_ID SEPARATOR ", ") as Staff_ID')
+                DB::raw('IFNULL(GROUP_CONCAT(DISTINCT CONCAT(admins.Admin_fname, " ", admins.Admin_mname, " ", admins.Admin_lname) SEPARATOR ", " LIMIT 1), "Admin") as adminNames'),
+                // DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_lname SEPARATOR ", ") as adminNames'),
+                DB::raw('GROUP_CONCAT(DISTINCT cash.Staff_ID SEPARATOR ", ") as staffIDs')
             )
-            ->groupBy(
-                // 'cash.Staff_ID',
-                DB::raw('transactionDate')
-            )
-            ->orderBy('transactionDate', 'desc') 
+            ->groupBy(DB::raw('transactionDate'))
+            ->orderBy('transactionDate', 'desc')
             ->get();
 
         $expense = Expenses::sum('Amount');
         $payments = Payments::sum('Amount');
+        $total = $payments - $expense;
+
+        return response()->json([
+            'transactions' => $allTransactions,
+            'totalExpense' => $expense,
+            'totalPayments' => $payments,
+            'total' => $total
+        ], 200);
+    }
+    public function displayDisrepancy()
+    {
+        $results = DB::table('cash')
+            ->LeftJoin('expenses', function ($join) {
+                $join->on(DB::raw('YEAR(cash.Datetime_Remittance)'), '=', DB::raw('YEAR(expenses.Datetime_taken)'))
+                    ->on(DB::raw('MONTH(cash.Datetime_Remittance)'), '=', DB::raw('MONTH(expenses.Datetime_taken)'))
+                    ->on(DB::raw('DAY(cash.Datetime_Remittance)'), '=', DB::raw('DAY(expenses.Datetime_taken)'));
+                    // ->on('cash.Staff_ID', '=', 'expenses.Admin_ID')
+                    // ->orOn('cash.Admin_ID', '=', 'expenses.Admin_ID');
+            })
+            ->LeftJoin('payments', function ($join) {
+                $join->on(DB::raw('YEAR(cash.Datetime_Remittance)'), '=', DB::raw('YEAR(payments.Datetime_of_Payment)'))
+                    ->on(DB::raw('MONTH(cash.Datetime_Remittance)'), '=', DB::raw('MONTH(payments.Datetime_of_Payment)'))
+                    ->on(DB::raw('DAY(cash.Datetime_Remittance)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'));
+                    // ->on(DB::raw('YEAR(cash.Datetime_InitialAmo)'), '=', DB::raw('YEAR(payments.Datetime_of_Payment)'))
+                    // ->on(DB::raw('MONTH(cash.Datetime_InitialAmo)'), '=', DB::raw('MONTH(payments.Datetime_of_Payment)'))
+                    // ->on(DB::raw('DAY(cash.Datetime_InitialAmo)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'));
+                    // ->on('cash.Staff_ID', '=', 'payments.Admin_ID')
+                    // ->orOn('cash.Admin_ID', '=', 'payments.Admin_ID');
+            })
+            ->Leftjoin('admins', function ($join) {
+                $join->on('cash.Staff_ID', '=', 'admins.Admin_ID')
+                    ->orOn('cash.Admin_ID', '=', 'admins.Admin_ID');
+            })
+            ->select(
+                // 'cash.Cash_ID',
+                // 'cash.Admin_ID',
+                // 'cash.Staff_ID',
+                // 'admins.Admin_fname',
+                // 'cash.Fund_status',
+                DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_fname, " ", admins.Admin_mname, " ", admins.Admin_lname SEPARATOR ", " LIMIT 1) as name'),
+                DB::raw('COALESCE(SUM(DISTINCT cash.Remittance), 0) AS remitAmount'),
+                DB::raw('COALESCE(SUM(DISTINCT cash.Initial_amount), 0) AS initialAmount'),
+                DB::raw('COALESCE(SUM(DISTINCT expenses.Amount), 0) AS ExpensesAmount'),
+                DB::raw('COALESCE(SUM(DISTINCT payments.Amount), 0) AS paymentAmount'),
+                DB::raw('COALESCE(DATE(cash.Datetime_Remittance), DATE(cash.Datetime_InitialAmo),DATE(payments.Datetime_of_Payment),DATE(expenses.Datetime_taken)) as transactionDate')
+            )
+            ->where('cash.Fund_status', 'Approve')
+            ->groupBy(
+                // 'cash.Admin_ID',
+                // 'cash.Cash_ID',
+                // 'cash.Staff_ID',
+                // 'admins.Admin_fname',
+                // 'cash.Fund_status',
+                // 'remitMonth',
+                // 'remitDay',
+                // 'remitYear',
+                DB::raw('transactionDate')
+            )
+            ->orderBy('transactionDate', 'desc')
+            ->get();
+
+        // Calculate additional fields based on correct field names
+        foreach ($results as &$data) {
+            $data->netIncome = $data->remitAmount - $data->initialAmount - $data->ExpensesAmount;
+            $data->totaltransac = $data->paymentAmount + $data->initialAmount;
+            $data->totalcollec = $data->totaltransac + $data->ExpensesAmount;
+
+            if ($data->remitAmount > 0 && $data->paymentAmount > 0) {
+                $data->totalprofit = $data->remitAmount - $data->totalcollec;
+            } else {
+                $data->totalprofit = 0;
+            }
+        }
+
+        return response()->json($results, 200);
+    }
+
+    public function hisdisplayincome($id)
+    {
+        $allTransactionsExpenses = DB::table('expenses')
+            ->LeftJoin('payments', function($join) {
+                $join->on(DB::raw('YEAR(expenses.Datetime_taken)'), '=', DB::raw('YEAR(payments.Datetime_of_Payment)'))
+                     ->on(DB::raw('MONTH(expenses.Datetime_taken)'), '=', DB::raw('MONTH(payments.Datetime_of_Payment)'))
+                     ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'))
+                     ->on('expenses.Admin_ID', '=', 'payments.Admin_ID');
+            })
+            ->LeftJoin('cash', function($join) {
+                $join->on(DB::raw('YEAR(expenses.Datetime_taken)'), '=', DB::raw('YEAR(cash.Datetime_Remittance)'))
+                     ->on(DB::raw('MONTH(expenses.Datetime_taken)'), '=', DB::raw('MONTH(cash.Datetime_Remittance)'))
+                     ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(cash.Datetime_Remittance)'))
+                     ->on('expenses.Admin_ID', '=', 'cash.Admin_ID')
+                     ->orOn('expenses.Admin_ID', '=', 'cash.Staff_ID');
+            })
+            ->LeftJoin('admins', function($join) {
+                $join->on('expenses.Admin_ID', '=', 'admins.Admin_ID');
+            })
+            ->leftJoin('transactions', 'payments.Transac_ID', '=', 'transactions.Transac_ID')
+            ->select(
+                'expenses.Desc_reason',
+                DB::raw('SUM(DISTINCT expenses.Amount) as AmountExpenses'),
+                DB::raw('COALESCE(DATE(payments.Datetime_of_Payment), DATE(expenses.Datetime_taken)) as transactionDate'), 
+                DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_fname," ", admins.Admin_mname, " ", admins.Admin_lname SEPARATOR ", ") as adminNames')
+            )
+            ->whereRaw('DATE(COALESCE(payments.Datetime_of_Payment, expenses.Datetime_taken)) = ?', [$id])
+            ->groupBy(
+                'expenses.Desc_reason',
+                DB::raw('transactionDate',
+            ))
+            ->orderBy('transactionDate', 'desc') 
+            ->get();
+
+        $allTransactionsPayments = DB::table('expenses')
+            ->join('payments', function($join) {
+                $join->on(DB::raw('YEAR(expenses.Datetime_taken)'), '=', DB::raw('YEAR(payments.Datetime_of_Payment)'))
+                     ->on(DB::raw('MONTH(expenses.Datetime_taken)'), '=', DB::raw('MONTH(payments.Datetime_of_Payment)'))
+                     ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'))
+                     ->on('expenses.Admin_ID', '=', 'payments.Admin_ID');
+            })
+            ->join('cash', function($join) {
+                $join->on(DB::raw('YEAR(expenses.Datetime_taken)'), '=', DB::raw('YEAR(cash.Datetime_Remittance)'))
+                     ->on(DB::raw('MONTH(expenses.Datetime_taken)'), '=', DB::raw('MONTH(cash.Datetime_Remittance)'))
+                     ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(cash.Datetime_Remittance)'))
+                     ->on('expenses.Admin_ID', '=', 'cash.Admin_ID')
+                     ->orOn('expenses.Admin_ID', '=', 'cash.Staff_ID');
+            })
+            ->join('admins', function($join) {
+                $join->on('payments.Admin_ID', '=', 'admins.Admin_ID');
+            })
+            ->leftJoin('transactions', 'payments.Transac_ID', '=', 'transactions.Transac_ID')
+            ->select(
+                'transactions.Tracking_number',
+                // 'payments.Amount',
+                'payments.Mode_of_Payment',
+                DB::raw('COALESCE(DATE(payments.Datetime_of_Payment), DATE(expenses.Datetime_taken)) as transactionDate'), 
+                DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_fname," ", admins.Admin_mname, " ", admins.Admin_lname SEPARATOR ", ") as adminNames'),
+                DB::raw('SUM(DISTINCT payments.Amount) as AmountPayments')
+            )
+            ->whereRaw('DATE(COALESCE(payments.Datetime_of_Payment, expenses.Datetime_taken)) = ?', [$id])
+            ->groupBy(
+                'transactions.Tracking_number',
+                // 'payments.Amount',
+                'payments.Mode_of_Payment',
+                DB::raw('transactionDate'),
+            )
+            ->orderBy('transactionDate', 'desc') 
+            ->get();
+
+        $expense =  DB::table('expenses')
+            ->whereDate('Datetime_taken', $id)
+            ->sum('Amount');
+        $payments = DB::table('payments')
+            ->whereDate('Datetime_of_Payment', $id)
+            ->sum('Amount');
 
         $total =  $payments - $expense;
         
         return response()->json([
-            'transactions' => $allTransactions,
+            'transactionExpenses' => $allTransactionsExpenses,
+            'transactionPayments' => $allTransactionsPayments,
             'totalExpense' => $expense,
             'totalPayments' => $payments,
             'total' =>  $total
         ], 200);
     }
+    public function hisdisplayexpenses($id)
+    {
+        $price = Expenses::LeftJoin('admins', 'admins.Admin_ID', '=', 'expenses.Admin_ID')
+            ->select(
+                // 'admins.Admin_lname',
+                'expenses.Desc_reason',
+                'expenses.Receipt_filenameimg',
+                'expenses.Amount',
+                DB::raw('GROUP_CONCAT(CONCAT(admins.Admin_fname, " ", IFNULL(admins.Admin_mname, ""), " ", admins.Admin_lname) SEPARATOR ", ") as Admin_lname'),
+                // DB::raw('GROUP_CONCAT( expenses.Desc_reason SEPARATOR ", ") as reason'),
+                // DB::raw('GROUP_CONCAT( expenses.Receipt_filenameimg SEPARATOR ", ") as image'),
+                // DB::raw('SUM(expenses.Amount) as totalExpenses'), 
+                DB::raw('DATE(expenses.Datetime_taken) as transactionDate') // Extract transaction date directly
+            )
+            ->whereRaw('DATE(COALESCE(expenses.Datetime_taken)) = ?', [$id])
+            ->groupBy(
+                DB::raw('Admin_lname'),
+                DB::raw('transactionDate'),
+                'expenses.Desc_reason',
+                'expenses.Receipt_filenameimg',
+                'expenses.Amount',
+            ) // Group by extracted transaction date
+            // ->orderBy('transactionDate', 'desc') // Order by transaction date
+            ->get();
 
-    public function hisdisplayincome($id)
+        $totalAmount = DB::table('expenses')
+        ->whereDate('Datetime_taken', $id)
+        ->sum('Amount');
+
+        // Return the result in JSON format
+        return response()->json([
+            'price' => $price,
+            'totalAmount' => $totalAmount,
+        ], 200);
+    }
+    public function hisdisplaydiscripancy($id)
     {
         $allTransactionsExpenses = DB::table('expenses')
             ->LeftJoin('payments', function($join) {
@@ -1199,7 +1674,7 @@ class AdminController extends Controller
                 // 'payments.Amount',
                 'payments.Mode_of_Payment',
                 DB::raw('COALESCE(DATE(payments.Datetime_of_Payment), DATE(expenses.Datetime_taken)) as transactionDate'), 
-                DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_lname SEPARATOR ", ") as adminNames'),
+                DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_fname," ", admins.Admin_mname, " ", admins.Admin_lname SEPARATOR ", ") as adminNames'),
                 DB::raw('SUM(DISTINCT payments.Amount) as AmountPayments')
             )
             ->whereRaw('DATE(COALESCE(payments.Datetime_of_Payment, expenses.Datetime_taken)) = ?', [$id])
@@ -1211,6 +1686,42 @@ class AdminController extends Controller
             )
             ->orderBy('transactionDate', 'desc') 
             ->get();
+        $allTransactionsRemittance = DB::table('cash')
+            ->join('admins', function($join) {
+                $join->on('cash.Staff_ID', '=', 'admins.Admin_ID')
+                ->orOn('cash.Admin_ID', '=', 'admins.Admin_ID');
+            })
+            ->select(
+                // 'cash.Datetime_InitialAmo',
+                DB::raw('COALESCE(cash.Datetime_Remittance, "No Date Provided") as Datetime_Remittance'),
+                DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_fname," ", admins.Admin_mname, " ", admins.Admin_lname SEPARATOR ", ") as adminNames'),
+                DB::raw('SUM(DISTINCT cash.Remittance) as AmountRemittance')
+            )
+            ->whereDate('cash.Datetime_Remittance', $id)
+            ->groupBy(
+                'cash.Datetime_Remittance',
+            )
+            ->orderBy('cash.Datetime_Remittance', 'desc')
+            ->get();
+
+        $allTransactionsInitialamount = DB::table('cash')
+                ->join('admins', function($join) {
+                    $join->on('cash.Staff_ID', '=', 'admins.Admin_ID');
+                })
+                ->select(
+                    // 'cash.Datetime_InitialAmo',
+                    DB::raw('COALESCE(cash.Datetime_InitialAmo, "No Date Provided") as Datetime_InitialAmo'),
+                    DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_fname," ", admins.Admin_mname, " ", admins.Admin_lname SEPARATOR ", ") as adminNames'),
+                    DB::raw('SUM(DISTINCT cash.Initial_amount) as AmountInitial')
+                )
+                ->whereDate('cash.Datetime_InitialAmo', $id)
+                ->groupBy(
+                    'cash.Datetime_InitialAmo',
+                )
+                ->orderBy('cash.Datetime_InitialAmo', 'desc')
+                ->get();
+        
+        
 
         $expense =  DB::table('expenses')
             ->whereDate('Datetime_taken', $id)
@@ -1219,44 +1730,92 @@ class AdminController extends Controller
             ->whereDate('Datetime_of_Payment', $id)
             ->sum('Amount');
 
-        $total =  $payments - $expense;
+        $Remittance = DB::table('cash')
+            ->whereDate('Datetime_Remittance', $id)
+            ->sum('Remittance');
+        
+        $InitialAmount = DB::table('cash')
+            ->whereDate('Datetime_InitialAmo', $id)
+            ->sum('Initial_amount');
+
+        $totals = $InitialAmount + $payments + $expense;
+        $total = $Remittance - $totals;
         
         return response()->json([
             'transactionExpenses' => $allTransactionsExpenses,
             'transactionPayments' => $allTransactionsPayments,
+            'transactionRemittance' => $allTransactionsRemittance,
+            'transactionInitialamount' => $allTransactionsInitialamount,
             'totalExpense' => $expense,
             'totalPayments' => $payments,
+            'remittance' =>  $Remittance,
+            'initial' =>  $InitialAmount,
             'total' =>  $total
         ], 200);
     }
-    public function hisdisplayexpenses($id)
+
+    public function collectable()
     {
-        $price = Expenses::LeftJoin('admins', 'admins.Admin_ID', '=', 'expenses.Admin_ID')
-            ->select(
-                'admins.Admin_lname',
-                'expenses.Desc_reason',
-                'expenses.Receipt_filenameimg',
-                'expenses.Amount',
-                // DB::raw('GROUP_CONCAT( admins.Admin_lname SEPARATOR ", ") as adminNames'),
-                // DB::raw('GROUP_CONCAT( expenses.Desc_reason SEPARATOR ", ") as reason'),
-                // DB::raw('GROUP_CONCAT( expenses.Receipt_filenameimg SEPARATOR ", ") as image'),
-                // DB::raw('SUM(expenses.Amount) as totalExpenses'), 
-                DB::raw('DATE(expenses.Datetime_taken) as transactionDate') // Extract transaction date directly
-            )
-            ->whereRaw('DATE(COALESCE(expenses.Datetime_taken)) = ?', [$id])
-            // ->groupBy('transactionDate') // Group by extracted transaction date
-            // ->orderBy('transactionDate', 'desc') // Order by transaction date
-            ->get();
+        $totalprice = TransactionDetails::sum('Price');
+        $transaction = DB::table('transactions')
+                    // ->where('transactions.Cust_ID', $id)
+                    ->LeftJoin('transaction_status', 'transactions.Transac_ID', '=', 'transaction_status.Transac_ID')
+                    ->LeftJoin('customers', 'transactions.Cust_ID', '=', 'customers.Cust_ID')
+                    ->LeftJoin('transaction_details', 'transactions.Transac_ID', '=', 'transaction_details.Transac_ID')
+                    // ->LeftJoin('laundry_categories', 'transaction_details.Categ_ID', '=', 'laundry_categories.Categ_ID')
+                    // ->LeftJoin('additional_services', 'transaction_details.Transac_ID', '=', 'additional_services.Transac_ID')
+                    ->LeftJoin('admins', 'admins.Admin_ID', '=', 'transactions.Admin_ID')
+                    ->select(
+                            'transactions.Transac_ID',
+                            'transactions.Tracking_number',
+                            'transactions.Transac_datetime',
+                            // 'additional_services.AddService_price',
+                            DB::raw("(SELECT TransacStatus_name
+                                FROM transaction_status AS ts
+                                WHERE ts.Transac_ID = transactions.Transac_ID
+                                AND ts.TransacStatus_datetime = (SELECT MAX(TransacStatus_datetime)
+                                                    FROM transaction_status
+                                                    WHERE Transac_ID = transactions.Transac_ID)
+                                LIMIT 1) AS latest_transac_status"),
+                            // 'transaction_status.TransacStatus_name',
+                            // 'transactions.Received_datetime',
+                            // 'transactions.Released_datetime',
+                            'customers.Cust_ID', 
+                            'customers.Cust_fname', 
+                            'customers.Cust_lname', 
+                            'admins.Admin_fname',
+                            'admins.Admin_mname',
+                            'admins.Admin_lname',
+                            DB::raw('GROUP_CONCAT(DISTINCT CONCAT(admins.Admin_fname, " ", admins.Admin_mname, " ", admins.Admin_lname) SEPARATOR ", ") as adminnames'),
+                            // DB::raw('GROUP_CONCAT(DISTINCT CONCAT(transaction_details.Qty, "kgs ", laundry_categories.Category) SEPARATOR ", ") as Category'),
+                            DB::raw('SUM(DISTINCT transaction_details.Price) as totalprice')
+                            // DB::raw('SUM(additional_services.AddService_price) as totalprice')    
+                    )
+                    ->groupBy(
+                            'transactions.Transac_ID',
+                            'transactions.Tracking_number',
+                            'transactions.Transac_datetime',
+                            // 'additional_services.AddService_price',
+                            // 'transaction_status.TransacStatus_name',
+                            // 'transaction_status.TransacStatus_datetime',
+                            // 'transactions.Received_datetime',
+                            // 'transactions.Released_datetime',
+                            DB::raw('latest_transac_status'),
+                            'customers.Cust_ID', 
+                            'customers.Cust_fname', 
+                            'customers.Cust_lname', 
+                            'admins.Admin_fname',
+                            'admins.Admin_mname',
+                            'admins.Admin_lname'
+                    )
+                    ->get();
+    
 
-        $totalAmount = DB::table('expenses')
-        ->whereDate('Datetime_taken', $id)
-        ->sum('Amount');
+            if ($transaction->isEmpty()) {
+            return response()->json(['message' => 'Transaction not found'], 404);
+            }
 
-        // Return the result in JSON format
-        return response()->json([
-            'price' => $price,
-            'totalAmount' => $totalAmount,
-        ], 200);
+            return response()->json(['trans' => $transaction, 'price' => $totalprice], 200);
     }
 
     //ACCOUNT

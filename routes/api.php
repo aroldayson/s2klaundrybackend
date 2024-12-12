@@ -39,10 +39,13 @@ Route::post('/update-profile-image/{id}', [AdminController::class, 'updateProfil
 
 // admin - pricemanagement
 Route::get('/pricedisplay',[AdminController::class, 'pricedisplay']);
+Route::get('/pricedisplayDestination',[AdminController::class, 'pricedisplayDestination']);
 Route::post('/addprice',[AdminController::class, 'addprice']);
 Route::delete('/deletecateg/{id}',[AdminController::class, 'deletecateg']);
 Route::get('/findprice/{id}',[AdminController::class, 'findprice']);
 Route::put('/updateprice/{id}',[AdminController::class, 'updateprice']);
+Route::post('/addpricedestination',[AdminController::class, 'addpricedestination']);
+Route::delete('/deletedestination/{id}',[AdminController::class, 'deletedestination']);
 
 // admin - dashboard
 Route::get('/dashdisplays',[AdminController::class, 'dashdisplays']);
@@ -53,6 +56,7 @@ Route::post('/cashinitial',[AdminController::class, 'cashinitial']);
 Route::post('/remittance',[AdminController::class, 'remittance']);
 Route::get('/veiwdeatils',[AdminController::class, 'veiwdeatils']);
 Route::get('/CountDisplay',[AdminController::class, 'CountDisplay']);
+Route::get('/dashdisplaysmonth',[AdminController::class, 'dashdisplaysmonth']);
 
 // admin - customer
 Route::get('/customerdisplay',[AdminController::class, 'customerdisplay']);
@@ -70,14 +74,19 @@ Route::get('/printTransac/{id}',[AdminController::class, 'printTransac']);
 Route::get('/approveremit/{id}',[AdminController::class, 'approveremit']);
 Route::get('/DisplayAllTransaction/{id}',[AdminController::class, 'DisplayAllTransaction']);
 Route::get('/DisplayAllExpenses/{id}',[AdminController::class, 'DisplayAllExpenses']);
+Route::get('/TransactiondisplayAll',[AdminController::class, 'TransactiondisplayAll']);
+Route::get('/TransactiondisplayAlls',[AdminController::class, 'TransactiondisplayAlls']);
+Route::get('/collectable',[AdminController::class, 'collectable']);
 
 
 // admin- report
 Route::get('/displayexpenses',[AdminController::class, 'displayexpenses']);
 Route::get('/displayincome',[AdminController::class, 'displayincome']);
 Route::get('/remittanceapproved',[AdminController::class, 'remittanceapproved']);
+Route::get('/displayDisrepancy',[AdminController::class, 'displayDisrepancy']);
 Route::get('/hisdisplayincome/{id}',[AdminController::class, 'hisdisplayincome']);
 Route::get('/hisdisplayexpenses/{id}',[AdminController::class, 'hisdisplayexpenses']);
+Route::get('/hisdisplaydiscripancy/{id}',[AdminController::class, 'hisdisplaydiscripancy']);
 
 // admin- account 
 Route::get('/admin/{id}',[AdminController::class, 'findstaff']);
