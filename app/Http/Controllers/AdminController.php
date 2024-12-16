@@ -447,6 +447,35 @@ class AdminController extends Controller
         return response()->json(null,204);
 
     }
+    public function findpricedestination($id)
+    {   
+        $pricecateg = shipping_services::find($id);
+        
+        if (is_null($pricecateg)) {
+            return response()->json(['message' => 'Staff not found'], 404);
+        }
+
+        return response()->json($pricecateg, 200);
+    }
+    public function updatepricedestination(Request $request, $id)
+    {
+        // Find the record
+        $pricecateg = shipping_services::find($id);
+        if (is_null($pricecateg)) {
+            return response()->json(['message' => 'shipping_services not Found'], 404);
+        }
+
+        // Validate the request data, ensuring Category is unique excluding the current record
+        $price = $request->all();
+
+        // Update the record
+        $pricecateg->update($price);
+
+        return response()->json([
+            'message' => 'Success',
+            'data' => $pricecateg
+        ], 200);
+    }
 
      // DASHBOARD
     public function dashdisplays()
@@ -632,42 +661,117 @@ class AdminController extends Controller
     }
     public function dashdisplaysmonth()
     {
-        //  $date = now()->toDateString();  
+        $currentMonth = now()->month;
+        $currentYear = now()->year;
+
+        // Fetch payments for the current month and year
+        $payments = Payments::whereYear('Datetime_of_Payment', $currentYear)
+                            ->whereMonth('Datetime_of_Payment', $currentMonth)
+                            ->get();
+
+        $totalAmount = $payments->sum('Amount');
+
+        $totals = [
+            'gcash' => 0,
+            'cash' => 0,
+            'bpi' => 0,
+        ];
+
+        $paymentsByMethod = [
+            'gcash' => [],
+            'cash' => [],
+            'bpi' => [],
+        ];
+
+        foreach ($payments as $payment) {
+            $modeOfPayment = strtolower($payment->Mode_of_Payment);
+            if (isset($totals[$modeOfPayment])) {
+                $totals[$modeOfPayment] += $payment->Amount;
+                $paymentsByMethod[$modeOfPayment][] = $payment;
+            }
+        }
+
+        return response()->json([
+            'payments' => $paymentsByMethod,
+            'totals' => $totals,
+            'total_amount' => $totalAmount,
+        ], 200);
+    }
+    public function dashdisplaysmonths($year, $month)
+    {
+        // Fetch payments for the specified month and year
+        $payments = Payments::whereYear('Datetime_of_Payment', $year)
+                            ->whereMonth('Datetime_of_Payment', $month)
+                            ->get();
+
+        $totalAmount = $payments->sum('Amount');
+
+        $totals = [
+            'gcash' => 0,
+            'cash' => 0,
+            'bpi' => 0,
+        ];
+
+        $paymentsByMethod = [
+            'gcash' => [],
+            'cash' => [],
+            'bpi' => [],
+        ];
+
+        foreach ($payments as $payment) {
+            $modeOfPayment = strtolower($payment->Mode_of_Payment);
+            if (isset($totals[$modeOfPayment])) {
+                $totals[$modeOfPayment] += $payment->Amount;
+                $paymentsByMethod[$modeOfPayment][] = $payment;
+            }
+        }
+
+        return response()->json([
+            'payments' => $paymentsByMethod,
+            'totals' => $totals,
+            'total_amount' => $totalAmount,
+        ], 200);
+    }
+
+
+    // public function dashdisplaysmonth()
+    // {
+    //     //  $date = now()->toDateString();  
  
-         $payments = Payments::all();
-         $totalAmount = $payments->sum('Amount');
+    //      $payments = Payments::all();
+    //      $totalAmount = $payments->sum('Amount');
  
-         $totals = [
-             'gcash' => 0,
-             'cash' => 0,
-             'bpi' => 0,
-         ];
+    //      $totals = [
+    //          'gcash' => 0,
+    //          'cash' => 0,
+    //          'bpi' => 0,
+    //      ];
  
-         $paymentsByMethod = [
-             'gcash' => [],
-             'cash' => [],
-             'bpi' => [],
-         ];
+    //      $paymentsByMethod = [
+    //          'gcash' => [],
+    //          'cash' => [],
+    //          'bpi' => [],
+    //      ];
  
-         foreach ($payments as $payment) {
-             if (strtolower($payment->Mode_of_Payment) === 'gcash') {
-                 $totals['gcash'] += $payment->Amount;
-                 $paymentsByMethod['gcash'][] = $payment;
-             } elseif (strtolower($payment->Mode_of_Payment) === 'cash') {
-                 $totals['cash'] += $payment->Amount;
-                 $paymentsByMethod['cash'][] = $payment;
-             } elseif (strtolower($payment->Mode_of_Payment) === 'bpi') {
-                 $totals['bpi'] += $payment->Amount;
-                 $paymentsByMethod['bpi'][] = $payment;
-             }
-         }
+    //      foreach ($payments as $payment) {
+    //          if (strtolower($payment->Mode_of_Payment) === 'gcash') {
+    //              $totals['gcash'] += $payment->Amount;
+    //              $paymentsByMethod['gcash'][] = $payment;
+    //          } elseif (strtolower($payment->Mode_of_Payment) === 'cash') {
+    //              $totals['cash'] += $payment->Amount;
+    //              $paymentsByMethod['cash'][] = $payment;
+    //          } elseif (strtolower($payment->Mode_of_Payment) === 'bpi') {
+    //              $totals['bpi'] += $payment->Amount;
+    //              $paymentsByMethod['bpi'][] = $payment;
+    //          }
+    //      }
  
-         return response()->json([
-             'payments' => $paymentsByMethod,
-             'totals' => $totals,
-             'total_amount' => $totalAmount
-         ], 200);
-     }
+    //      return response()->json([
+    //          'payments' => $paymentsByMethod,
+    //          'totals' => $totals,
+    //          'total_amount' => $totalAmount
+    //      ], 200);
+    //  }
 
 
 
@@ -797,7 +901,10 @@ class AdminController extends Controller
             ->join('laundry_categories', 'transaction_details.Categ_ID', '=', 'laundry_categories.Categ_ID')
             ->LeftJoin('additional_services', 'transaction_details.Transac_ID', '=', 'additional_services.Transac_ID')
             ->leftJoin('payments', 'transactions.Transac_ID', '=', 'payments.Transac_ID')
+            // ->crossjoin('shipping_service_price')
+            // ->where('customers.Cust_address', 'like', '%Sison%')
             ->select(
+                // 'shipping_service_price.ShipServ_price',
                 'transaction_details.Categ_ID',
                 'transactions.Transac_ID',
                 'transactions.Tracking_number',
@@ -818,6 +925,7 @@ class AdminController extends Controller
                 'admins.Admin_fname',
                 'admins.Admin_mname',
                 'admins.Admin_lname',
+                // DB::raw('SUM(DISTINCT shipping_service_price.ShipServ_price) as ShippingtotalPrice'),
                 DB::raw('SUM(transaction_details.Price) as totalPrice'),
                 // DB::raw('SUM(additional_services.AddService_price) as totalAddSerPrice'),
                 // DB::raw('GROUP_CONCAT(DISTINCT additional_services.AddService_name SEPARATOR ", ") AS Additionalprice'),
@@ -828,6 +936,7 @@ class AdminController extends Controller
                 DB::raw('SUM(payments.Amount) - SUM(transaction_details.Price) as balanceAmount'),
             )
             ->groupBy(
+                // 'shipping_service_price.ShipServ_price',
                 'transaction_details.Categ_ID',
                 'transactions.Transac_ID',
                 DB::raw('latest_transac_status'),
@@ -1368,9 +1477,8 @@ class AdminController extends Controller
                 DB::raw('(SELECT DISTINCT Receipt_filenameimg 
                 FROM expenses 
                 LIMIT 1) as image'),
-                DB::raw('(SELECT DISTINCT Desc_reason 
-                FROM expenses 
-                LIMIT 1) as reason'),
+                // 'expenses.Desc_reason as reason ',
+                DB::raw('MIN(expenses.Desc_reason) as reason'),
                 DB::raw('GROUP_CONCAT(DISTINCT admins.Admin_lname SEPARATOR ", ") as adminNames'),
                 // DB::raw('GROUP_CONCAT(DISTINCT expenses.Desc_reason SEPARATOR ", ") as reason'),
                 // DB::raw('GROUP_CONCAT(DISTINCT expenses.Receipt_filenameimg SEPARATOR ", " ) as image  LIMIT 1'),
@@ -1395,8 +1503,8 @@ class AdminController extends Controller
             ->LeftJoin('expenses', function ($join) {
                 $join->on(DB::raw('YEAR(expenses.Datetime_taken)'), '=', DB::raw('YEAR(payments.Datetime_of_Payment)'))
                     ->on(DB::raw('MONTH(expenses.Datetime_taken)'), '=', DB::raw('MONTH(payments.Datetime_of_Payment)'))
-                    ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'))
-                    ->on('expenses.Admin_ID', '=', 'payments.Admin_ID');
+                    ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'));
+                    // ->on('expenses.Admin_ID', '=', 'payments.Admin_ID');
             })
             ->leftJoin('cash', function ($join) {
                 $join->on(DB::raw('YEAR(expenses.Datetime_taken)'), '=', DB::raw('YEAR(cash.Datetime_Remittance)'))
@@ -1536,20 +1644,20 @@ class AdminController extends Controller
             ->get();
 
         $allTransactionsPayments = DB::table('expenses')
-            ->join('payments', function($join) {
+            ->leftJoin('payments', function($join) {
                 $join->on(DB::raw('YEAR(expenses.Datetime_taken)'), '=', DB::raw('YEAR(payments.Datetime_of_Payment)'))
                      ->on(DB::raw('MONTH(expenses.Datetime_taken)'), '=', DB::raw('MONTH(payments.Datetime_of_Payment)'))
-                     ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'))
-                     ->on('expenses.Admin_ID', '=', 'payments.Admin_ID');
+                     ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(payments.Datetime_of_Payment)'));
+                    //  ->on('expenses.Admin_ID', '=', 'payments.Admin_ID');
             })
-            ->join('cash', function($join) {
+            ->leftJoin('cash', function($join) {
                 $join->on(DB::raw('YEAR(expenses.Datetime_taken)'), '=', DB::raw('YEAR(cash.Datetime_Remittance)'))
                      ->on(DB::raw('MONTH(expenses.Datetime_taken)'), '=', DB::raw('MONTH(cash.Datetime_Remittance)'))
                      ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(cash.Datetime_Remittance)'))
                      ->on('expenses.Admin_ID', '=', 'cash.Admin_ID')
                      ->orOn('expenses.Admin_ID', '=', 'cash.Staff_ID');
             })
-            ->join('admins', function($join) {
+            ->leftJoin('admins', function($join) {
                 $join->on('payments.Admin_ID', '=', 'admins.Admin_ID');
             })
             ->leftJoin('transactions', 'payments.Transac_ID', '=', 'transactions.Transac_ID')
@@ -1665,7 +1773,7 @@ class AdminController extends Controller
                      ->on(DB::raw('MONTH(expenses.Datetime_taken)'), '=', DB::raw('MONTH(cash.Datetime_Remittance)'))
                      ->on(DB::raw('DAY(expenses.Datetime_taken)'), '=', DB::raw('DAY(cash.Datetime_Remittance)'));
             })
-            ->join('admins', function($join) {
+            ->leftJoin('admins', function($join) {
                 $join->on('payments.Admin_ID', '=', 'admins.Admin_ID');
             })
             ->leftJoin('transactions', 'payments.Transac_ID', '=', 'transactions.Transac_ID')

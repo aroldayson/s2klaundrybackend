@@ -46,6 +46,8 @@ Route::get('/findprice/{id}',[AdminController::class, 'findprice']);
 Route::put('/updateprice/{id}',[AdminController::class, 'updateprice']);
 Route::post('/addpricedestination',[AdminController::class, 'addpricedestination']);
 Route::delete('/deletedestination/{id}',[AdminController::class, 'deletedestination']);
+Route::get('/findpricedestination/{id}',[AdminController::class, 'findpricedestination']);
+Route::put('/updatepricedestination/{id}',[AdminController::class, 'updatepricedestination']);
 
 // admin - dashboard
 Route::get('/dashdisplays',[AdminController::class, 'dashdisplays']);
@@ -57,6 +59,7 @@ Route::post('/remittance',[AdminController::class, 'remittance']);
 Route::get('/veiwdeatils',[AdminController::class, 'veiwdeatils']);
 Route::get('/CountDisplay',[AdminController::class, 'CountDisplay']);
 Route::get('/dashdisplaysmonth',[AdminController::class, 'dashdisplaysmonth']);
+Route::get('/dashdisplaysmonths/{year}/{month}',[AdminController::class, 'dashdisplaysmonths']);
 
 // admin - customer
 Route::get('/customerdisplay',[AdminController::class, 'customerdisplay']);
