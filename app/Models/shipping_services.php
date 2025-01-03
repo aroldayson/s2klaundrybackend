@@ -12,7 +12,7 @@ class shipping_services extends Model
     protected $keyType = 'int'; 
     protected $fillable = [
         'ShipServ_ID',
-        'City_Address',
+        'ShipServ_Town',
         'ShipServ_price'
     ];
 }
