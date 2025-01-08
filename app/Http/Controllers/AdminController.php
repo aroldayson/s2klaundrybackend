@@ -915,6 +915,8 @@ class AdminController extends Controller
             // ->where('customers.Cust_address', 'like', '%Sison%')
             ->select(
                 // 'shipping_service_price.ShipServ_price',
+                'transactions.Transac_datetime',
+                DB::raw('DATE_ADD(transactions.Transac_datetime, INTERVAL 4 DAY) as estimated_date'),
                 'transaction_details.Categ_ID',
                 'transactions.Transac_ID',
                 'transactions.Tracking_number',
@@ -947,6 +949,7 @@ class AdminController extends Controller
             )
             ->groupBy(
                 // 'shipping_service_price.ShipServ_price',
+                'transactions.Transac_datetime',
                 'transaction_details.Categ_ID',
                 'transactions.Transac_ID',
                 DB::raw('latest_transac_status'),
