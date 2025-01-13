@@ -814,7 +814,7 @@ class AdminController extends Controller
                             'transactions.Transac_ID',
                             'transactions.Tracking_number',
                             'transactions.Transac_datetime',
-                            'additional_services.AddService_price',
+                            // 'additional_services.AddService_price',
                             DB::raw("(SELECT TransacStatus_name
                                 FROM transaction_status AS ts
                                 WHERE ts.Transac_ID = transactions.Transac_ID
@@ -861,7 +861,7 @@ class AdminController extends Controller
                             'transactions.Transac_ID',
                             'transactions.Tracking_number',
                             'transactions.Transac_datetime',
-                            'additional_services.AddService_price',
+                            // 'additional_services.AddService_price',
                             // 'transaction_status.TransacStatus_name',
                             // 'transaction_status.TransacStatus_datetime',
                             // 'transactions.Received_datetime',
